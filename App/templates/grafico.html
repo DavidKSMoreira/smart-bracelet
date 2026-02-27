@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="10">
+    <title>Gráfico - {{ esp_id }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f4; }
+        .chart-container {
+            width: 80%;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 { text-align: center; color: #333; }
+        a { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="chart-container">
+        <h1>Monitor de Dados</h1>
+        <h2>ESP ID: {{ esp_id }}</h2>
+        <canvas id="meuGrafico"></canvas>
+    </div>
+    <div style="text-align: center;">
+        <a href="/">Voltar para a lista</a>
+    </div>
+
+    <script>
+        // Pega os dados passados pelo Flask e convertidos para JSON
+        const dados = {{ dados|safe }};
+        const rotulos = {{ rotulos|safe }};
+
+        const ctx = document.getElementById('meuGrafico').getContext('2d');
+        
+        const meuGrafico = new Chart(ctx, {
+            type: 'line', // Tipo de gráfico
+            data: {
+                labels: rotulos, // Rótulos do eixo X
+                datasets: [{
+                    label: 'Leitura do Sensor',
+                    data: dados, // Dados do eixo Y
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1 // Deixa a linha um pouco curva
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true // Eixo Y começa em zero
+                    }
+                },
+                animation: {
+                    duration: 0 // Desativa animações na atualização
+                }
+            }
+        });
+    </script>
+</body>
+</html>
