@@ -1,6 +1,6 @@
 import sqlite3
 from flask import Flask, request, jsonify, render_template
-from .notificacao import enviar_email_notificacao, enviar_sms_notificacao
+from notificacao import enviar_email_notificacao, enviar_sms_notificacao
 from banco import DB_NAME, inicializar_banco, salva_dados
 import json
 
@@ -101,6 +101,43 @@ def mostrar_grafico():
     except sqlite3.Error as e:
         return f"<h1>Erro no Banco de Dados</h1><p>{e}</p>", 500
         
+
+@app.route('/api/dados_grafico')
+def api_dados_grafico():
+    esp_id_query = request.args.get('esp_id')
+
+    if not esp_id_query:
+        return jsonify({"error": "ID não fornecido"}), 400
+
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        
+        # Pega os últimos 20 registros, por exemplo (para o gráfico não ficar pesado demais)
+        cursor.execute("""
+            SELECT temperatura, batimento_cardiaco, horario 
+            FROM leituras 
+            WHERE esp_id = ? 
+            ORDER BY id DESC LIMIT 20
+        """, (esp_id_query,))
+        
+        resultados = cursor.fetchall()
+        conn.close()
+
+        # Inverte a ordem para o gráfico mostrar do mais antigo para o mais novo (esquerda p/ direita)
+        resultados = results = list(reversed(resultados))
+
+        dados_json = {
+            'temperatura': [row[0] for row in resultados],
+            'batimentos': [row[1] for row in resultados],
+            'labels': [row[2] for row in resultados] # Horários
+        }
+
+        return jsonify(dados_json)
+
+    except sqlite3.Error as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     inicializar_banco()
     # O 'host="0.0.0.0"' torna o servidor acessível na sua rede local
