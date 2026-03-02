@@ -1,91 +1,86 @@
 #include <WiFi.h>
-#include <HTTPClient.h>
+#include <PubSubClient.h>
 #include <ArduinoJson.h>
 
 // --- Configurações de Rede ---
 const char* ssid = "NOME_REDE";
 const char* password = "SENHA_REDE";
-// O endereço do seu servidor. Se o servidor estiver no mesmo computador,
-// use o IP local do computador, não "localhost".
-// Para descobrir seu IP no Windows, use `ipconfig` no cmd. No Linux/macOS, `ifconfig` ou `ip a`.
-const char* serverName = "http://IP.ADDRESS.SERVER:5000/dados"; // <-- TROQUE PELO IP DO SEU PC!
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
+// --- Configurações MQTT ---
+const char* mqtt_server = "IP.DO.BROKER.MQTT"; // Ex: 192.168.1.100
+const int mqtt_port = 1883;
+const char* mqtt_topic = "esp32/dados";
 
-  // Conectar ao Wi-Fi
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void setup_wifi() {
+  delay(10);
+  Serial.println();
+  Serial.print("Conectando a ");
+  Serial.println(ssid);
   WiFi.begin(ssid, password);
-  Serial.println("Conectando ao WiFi..");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nConectado!");
-  Serial.print("Endereço IP do ESP32: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("Conectado!");
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Tentando conexão MQTT...");
+    // Cria um ID randômico para não conflitar
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+    
+    if (client.connect(clientId.c_str())) {
+      Serial.println("conectado");
+    } else {
+      Serial.print("falhou, rc=");
+      Serial.print(client.state());
+      Serial.println(" tentando novamente em 5s");
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  setup_wifi();
+  client.setServer(mqtt_server, mqtt_port);
 }
 
 void loop() {
-  // Simula a leitura dos sensores
-  float temperatura = 36.5;
-  int batimento_cardiaco = 80;
-  String esp_id = "ESP_SALA_01";
-
-  // *** Simula a detecção de queda ***
-  // Na prática, esta variável viria do seu sensor (ex: acelerômetro)
-  // Alterne entre 'true' e 'false' para testar
-  bool queda = true; 
-
-  // Envia os dados
-  enviarDados(temperatura, batimento_cardiaco, queda, esp_id);
-
-  // Aguarda 10 segundos antes de enviar novamente
-  delay(10000);
-
-  // Envia um dado sem queda para teste
-  queda = false;
-  enviarDados(temperatura, batimento_cardiaco, queda, esp_id);
-  
-  delay(10000);
-}
-
-void enviarDados(float temp, int bpm, bool queda, String id) {
-  if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    http.begin(serverName);
-    http.addHeader("Content-Type", "application/json");
-
-    // Cria o documento JSON
-    JsonDocument doc; // Para ArduinoJson v6+
-    doc["temperatura"] = temp;
-    doc["batimento_cardiaco"] = bpm;
-    doc["queda"] = queda;
-    doc["esp_id"] = id;
-
-    String jsonPayload;
-    serializeJson(doc, jsonPayload); // Converte o JSON para uma String
-
-    Serial.println("Enviando payload: ");
-    Serial.println(jsonPayload);
-
-    // Envia a requisição POST
-    int httpResponseCode = http.POST(jsonPayload);
-
-    if (httpResponseCode > 0) {
-      String response = http.getString();
-      Serial.print("Código de resposta HTTP: ");
-      Serial.println(httpResponseCode);
-      Serial.print("Resposta do servidor: ");
-      Serial.println(response);
-    } else {
-      Serial.print("Erro no envio. Código: ");
-      Serial.println(httpResponseCode);
-    }
-
-    http.end();
-  } else {
-    Serial.println("WiFi Desconectado. Tentando reconectar...");
-    WiFi.begin(ssid, password);
+  if (!client.connected()) {
+    reconnect();
   }
+  client.loop();
+
+  // --- Simulação de Dados ---
+  float temperatura = 36.5 + (random(-10, 10) / 10.0); // Variação leve
+  int batimento_cardiaco = 80 + random(-5, 10);
+  String esp_id = "ESP_SALA_01";
+  bool queda = false; 
+  
+  // Simula queda aleatória (1% de chance a cada loop)
+  if(random(0, 100) > 98) queda = true;
+
+  // Criação do JSON
+  JsonDocument doc;
+  doc["temperatura"] = temperatura;
+  doc["batimento_cardiaco"] = batimento_cardiaco;
+  doc["queda"] = queda;
+  doc["esp_id"] = esp_id;
+
+  String jsonPayload;
+  serializeJson(doc, jsonPayload);
+
+  Serial.print("Publicando: ");
+  Serial.println(jsonPayload);
+
+  // Publica no tópico MQTT
+  client.publish(mqtt_topic, jsonPayload.c_str());
+
+  delay(2000); // Envia a cada 2 segundos
 }

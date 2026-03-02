@@ -3,66 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="10">
-    <title>Gráfico - {{ esp_id }}</title>
+    <title>Monitor Tempo Real - {{ esp_id }}</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: sans-serif; background-color: #f4f4f4; }
-        .chart-container {
-            width: 80%;
-            max-width: 900px;
-            margin: 50px auto;
-            padding: 20px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        h1, h2 { text-align: center; color: #333; }
-        a { color: #007bff; }
+        body { font-family: sans-serif; background-color: #f4f4f4; text-align: center; }
+        .chart-container { width: 90%; max-width: 1000px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px; }
     </style>
 </head>
 <body>
     <div class="chart-container">
-        <h1>Monitor de Dados</h1>
-        <h2>ESP ID: {{ esp_id }}</h2>
+        <h2>Monitoramento: {{ esp_id }}</h2>
         <canvas id="meuGrafico"></canvas>
-    </div>
-    <div style="text-align: center;">
-        <a href="/">Voltar para a lista</a>
     </div>
 
     <script>
-        // Pega os dados passados pelo Flask e convertidos para JSON
-        const dados = {{ dados|safe }};
-        const rotulos = {{ rotulos|safe }};
-
+        const esp_id = "{{ esp_id }}";
         const ctx = document.getElementById('meuGrafico').getContext('2d');
         
-        const meuGrafico = new Chart(ctx, {
-            type: 'line', // Tipo de gráfico
+        const chart = new Chart(ctx, {
+            type: 'line',
             data: {
-                labels: rotulos, // Rótulos do eixo X
-                datasets: [{
-                    label: 'Leitura do Sensor',
-                    data: dados, // Dados do eixo Y
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.1 // Deixa a linha um pouco curva
-                }]
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Temperatura (°C)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        yAxisID: 'y',
+                        tension: 0.1
+                    },
+                    {
+                        label: 'Batimentos (BPM)',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        yAxisID: 'y1',
+                        tension: 0.1
+                    }
+                ]
             },
             options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
                 scales: {
-                    y: {
-                        beginAtZero: true // Eixo Y começa em zero
-                    }
-                },
-                animation: {
-                    duration: 0 // Desativa animações na atualização
+                    y: { type: 'linear', display: true, position: 'left', title: {display: true, text: 'Temp °C'} },
+                    y1: { type: 'linear', display: true, position: 'right', grid: {drawOnChartArea: false}, title: {display: true, text: 'BPM'} }
                 }
             }
         });
+
+        async function atualizarGrafico() {
+            try {
+                const response = await fetch(`/api/historico?esp_id=${esp_id}`);
+                const data = await response.json();
+
+                if (data.labels && data.labels.length > 0) {
+                    chart.data.labels = data.labels;
+                    chart.data.datasets[0].data = data.temperatura;
+                    chart.data.datasets[1].data = data.batimentos;
+                    chart.update('none'); // 'none' para animação suave
+                }
+            } catch (error) {
+                console.error("Erro ao buscar dados:", error);
+            }
+        }
+
+        // Atualiza a cada 2 segundos
+        setInterval(atualizarGrafico, 2000);
+        atualizarGrafico(); // Chamada inicial
     </script>
 </body>
 </html>
