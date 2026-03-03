@@ -52,8 +52,34 @@ def receber_dados():
             return jsonify({"status": "error", "message": "Falha ao enviar notificações"}), 500
 
     else:
-        # Se não houve queda, apenas confirma o recebimento
-        print(f"Dados recebidos de {dados.get('esp_id')} sem alerta de queda.")
+        # Se não houve queda, apenas verifica os sinais vitais
+        print(f"Dados recebidos de {dados.get('esp_id')} sem alerta de queda. Verificando sinais vitais...")
+
+        #coleta os valores numéricos para verificação
+        batimento = float(dados.get("batimento_cardiaco", 0))
+        spo2 = float(dados.get("spo2", 100)) #assume 100% caso ainda não esteja enviando o spo2
+
+        #limiares de Segurança
+        if batimento > 120 or spo2 < 90:
+            print(f"ALERTA: Sinais vitais anormais {dados.get('esp_id')}! Preparanndo e-mail...")
+            
+            #busca dados de contato do cliente no banco
+            conn = sqlite3.connect(DB_NAME)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM clientes where esp_id = ?", (dados['esp_id'],))
+            resultado = cursor.fetchone()
+
+            if resultado:
+                dados['email_noitfy'] = resultado['email_noitfy']
+                dados['nome'] = resultado['nome']
+
+                #envia o email mesmo sem queda
+                enviar_email_notificacao(dados)
+
+            conn.close()
+
+        #salva os dados independemente de alerta ou nao    
         return salva_dados(dados)
         
 # Rota para exibir o gráfico
