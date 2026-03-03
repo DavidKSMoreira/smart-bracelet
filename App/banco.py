@@ -19,6 +19,7 @@ def inicializar_banco():
         esp_id TEXT NOT NULL,
         horario TEXT NOT NULL,
         temperatura REAL,
+        spo2 REAL NOT NULL,
         batimento_cardiaco INTEGER,
         queda INTEGER NOT NULL
     )
@@ -48,8 +49,8 @@ def salva_dados(dados):
         # O '?' previne SQL Injection
         # Converte o booleano 'queda' para 1 (True) ou 0 (False) para o SQLite
         cursor.execute(
-            "INSERT INTO leituras (esp_id, horario, temperatura, batimento_cardiaco, queda) VALUES (?, ?, ?, ?, ?)",
-            (dados['esp_id'], horario_atual, dados['temperatura'], dados['batimento_cardiaco'], int(dados['queda']))
+            "INSERT INTO leituras (esp_id, horario, temperatura, batimento_cardiaco, queda, spo2) VALUES (?, ?, ?, ?, ?, ?)",
+            (dados['esp_id'], horario_atual, dados['temperatura'], dados['batimento_cardiaco'], int(dados['queda']), dados['spo2'])
         )
         
         conn.commit()
