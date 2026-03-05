@@ -25,12 +25,23 @@ def inicializar_banco():
     )
     """)
     
+    #Cria a tabela 'usuarios'
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL UNIQUE
+    )
+    """)
+    
     # Cria a tabela 'clientes'
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS clientes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
         esp_id TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL,
         email_noitfy TEXT NOT NULL UNIQUE,
         number_notify TEXT NOT NULL UNIQUE
     )

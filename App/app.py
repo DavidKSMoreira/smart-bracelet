@@ -1,5 +1,5 @@
 import sqlite3
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect
 from notificacao import enviar_email_notificacao, enviar_sms_notificacao
 from banco import DB_NAME, inicializar_banco, salva_dados
 import json
@@ -8,6 +8,14 @@ import json
 # --- Criação do Servidor Flask ---
 
 app = Flask(__name__)
+
+@app.route("/login", methods=['POST', 'GET'])
+def login():
+    pass
+
+@app.route("/logout")
+def logout():
+    pass
 
 @app.route("/")
 def index():
@@ -23,7 +31,7 @@ def receber_dados():
     print(f"Dados recebidos: {dados}")
 
     # Verifica se os dados essenciais estão presentes
-    if not all(key in dados for key in ["queda", "esp_id", "temperatura", "batimento_cardiaco"]):
+    if not all(key in dados for key in ["queda", "esp_id", "temperatura", "batimento_cardiaco", "spo2"]):
         return jsonify({"status": "error", "message": "Dados incompletos"}), 400
 
     # A LÓGICA PRINCIPAL: Checa se houve uma queda
@@ -61,7 +69,7 @@ def receber_dados():
 
         #limiares de Segurança
         if batimento > 120 or spo2 < 90:
-            print(f"ALERTA: Sinais vitais anormais {dados.get('esp_id')}! Preparanndo e-mail...")
+            print(f"ALERTA: Sinais vitais anormais {dados.get('esp_id')}! Preparando e-mail...")
             
             #busca dados de contato do cliente no banco
             conn = sqlite3.connect(DB_NAME)
