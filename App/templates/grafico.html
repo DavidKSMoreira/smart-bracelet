@@ -18,12 +18,34 @@
         }
         h1, h2 { text-align: center; color: #333; }
         a { color: #007bff; }
+        /*Estilo para o novo painel de controle*/
+        .painel-controle {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        select {padding: 5px; font-size: 16px; border-radius: 4px;}
     </style>
 </head>
 <body>
     <div class="chart-container">
         <h1>Monitor de Dados</h1>
         <h2>ESP ID: <span id="espIdDisplay">{{ esp_id }}</span></h2>
+
+        <div class="painel-controle">
+            <label for="filtroTempo"><strong>Visualizar histórico: </strong></label>
+            <select id="filtroTempo" onchange="atualizarGrafico()">
+                <option value="">Últimos 20 registros (Padrão)</option>
+                <option value="1">Última 1 hora</option>
+                <option value="2">Últimas 2 horas</option>
+                <option value="6">Últimas 6 horas</option>
+                <option value="12">Últimas 12 horas</option>
+                <option value="24">Últimas 24 horas</option>
+            </select>
+        </div>
+
         <canvas id="meuGrafico"></canvas>
     </div>
     <div style="text-align: center;">
@@ -85,8 +107,15 @@
         // --- FUNÇÃO DE ATUALIZAÇÃO ---
         async function atualizarGrafico() {
             try {
+                //Novo: Leitura do valor do seletor e URL dinâmica
+                const horasSelecionadas = document.getElementById('filtroTempo').value;
+                let url = `/api/dados_grafico?esp_id=${espId}`;
+
+                if (horasSelecionadas !== ""){
+                    url += `&horas=${horasSelecionadas}`;
+                }
                 // Chama a nova rota criada no Python
-                const response = await fetch(`/api/dados_grafico?esp_id=${espId}`);
+                const response = await fetch(url);
                 const dados = await response.json();
 
                 if (dados.error) {
@@ -99,7 +128,23 @@
                 meuGrafico.data.datasets[0].data = dados.temperatura;
                 meuGrafico.data.datasets[1].data = dados.batimentos;
 
-                // Manda o Chart.js redesenhar
+                //NOVO: Lógica de alerta visual de queda
+                //Se queda == 1, cor vermelha e tamanho maior
+
+                const coresTemp = dados.quedas.map(queda => queda === 1 ? 'red' : 'rgba (255, 99, 132, 1)');
+                const coresBPM = dados.quedas.map(queda => queda === 1 ? 'red' : 'rgba(255, 99, 132, 1)');
+                const tamanhosPonto = dados.quedas.map(queda => queda === 1 ? 8 : 3); //8 grande, 3 padrão
+
+                //Aplica as listas de estilo nas linhas do gráfico
+                meuGrafico.data.datasets[0].pointBackgroundColor = coresTemp;
+                meuGrafico.data.datasets[0].pointRadius = tamanhosPonto;
+                meuGrafico.data.datasets[0].pointBorderColor = coresTemp;
+
+                meuGrafico.data.datasets[1].pointBackgroundColor = coresBPM;
+                meuGrafico.data.datasets[1].pointRadius = tamanhosPonto;
+                meuGrafico.data.datasets[1].pointBorderColor = coresBPM;
+
+                // Manda o Chart.js redesenhar com os novos estilps
                 meuGrafico.update('none'); // 'none' evita animação completa a cada update
                 
             } catch (error) {
