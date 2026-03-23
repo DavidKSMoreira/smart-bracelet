@@ -161,7 +161,7 @@ def api_dados_grafico():
         if horas_atras:
             #busca registros da janela de tempo solicitada
             cursor.execute("""
-                SELECT temperatura, batimento_cardiaco, horario, queda
+                SELECT temperatura, batimento_cardiaco, horario, queda, spo2
                 FROM leituras
                 WHERE esp_id = ? AND horario >= datetime('now', 'localtime', ?)
                 ORDER BY id ASC
@@ -171,7 +171,7 @@ def api_dados_grafico():
         else:                 
             # Pega os últimos 20 registros, por exemplo (para o gráfico não ficar pesado demais)
             cursor.execute("""
-                SELECT temperatura, batimento_cardiaco, horario, queda
+                SELECT temperatura, batimento_cardiaco, horario, queda, spo2
                 FROM leituras 
                 WHERE esp_id = ? 
                 ORDER BY id DESC LIMIT 20
@@ -185,7 +185,8 @@ def api_dados_grafico():
             'temperatura': [row[0] for row in resultados],
             'batimentos': [row[1] for row in resultados],
             'labels': [row[2] for row in resultados],
-            'quedas': [row[3] for row in resultados] #1 queda, 0 normal
+            'quedas': [row[3] for row in resultados], #1 queda, 0 normal
+            'spo2': [row[4] for row in resultados]
         }
 
         return jsonify(dados_json)
