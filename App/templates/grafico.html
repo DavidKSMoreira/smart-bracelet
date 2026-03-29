@@ -27,10 +27,11 @@
             border-radius: 5px;
         }
         select {padding: 5px; font-size: 16px; border-radius: 4px;}
+        h3{text-align: center; color: #555; margin-bottom: 10px;}
     </style>
 </head>
 <body>
-    <div class="chart-container">
+    <div class="chart-container" style="margin-top: 40px;">
         <h1>Monitor de Dados</h1>
         <h2>ESP ID: <span id="espIdDisplay">{{ esp_id }}</span></h2>
 
@@ -46,19 +47,27 @@
             </select>
         </div>
 
+        <h3>Sinais Vitais (Temp e BPM)</h3>
         <canvas id="meuGrafico"></canvas>
     </div>
-    <div style="text-align: center;">
+
+    <div class = "chart-container">
+        <h3>Oximetria (SpO2 %)</h3>
+        <canvas id="graficoSpo2"></canvas>
+    </div>
+    <div style="text-align: center; margin-bottom: 30px;">
         <a href="/">Voltar para a lista</a>
     </div>
 
     <script>
         // Pega o ID que veio do Flask
         const espId = "{{ esp_id }}";
-        const ctx = document.getElementById('meuGrafico').getContext('2d');
+
+        const ctx1 = document.getElementById('meuGrafico').getContext('2d');
+        const ctx2 = document.getElementById('graficoSpo2').getContext('2d');
         
         // Configuração inicial do gráfico (vazio)
-        const meuGrafico = new Chart(ctx, {
+        const meuGrafico = new Chart(ctx1, {
             type: 'line',
             data: {
                 labels: [], // Começa vazio
@@ -104,6 +113,38 @@
             }
         });
 
+        //Novo gráfico para SpO2
+        const graficoSpO2 = new Chart(ctx2, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Saturação de Oxigênio (%)',
+                        data: [],
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'SpO2 (%)' },
+                        min: 80, //limite inferior
+                        max: 100, //limite superior
+                    }
+                },
+                animation: false
+            }
+        });
+
         // --- FUNÇÃO DE ATUALIZAÇÃO ---
         async function atualizarGrafico() {
             try {
@@ -124,15 +165,21 @@
                 }
 
                 // Atualiza os dados do gráfico
+                //Eixo X
                 meuGrafico.data.labels = dados.labels;
+                graficoSpO2.data.labels = dados.labels;
+
+                //Eixo Y
                 meuGrafico.data.datasets[0].data = dados.temperatura;
                 meuGrafico.data.datasets[1].data = dados.batimentos;
+                graficoSpO2.data.datasets[0].data = dados.spo2;
 
                 //NOVO: Lógica de alerta visual de queda
                 //Se queda == 1, cor vermelha e tamanho maior
 
                 const coresTemp = dados.quedas.map(queda => queda === 1 ? 'red' : 'rgba (255, 99, 132, 1)');
                 const coresBPM = dados.quedas.map(queda => queda === 1 ? 'red' : 'rgba(255, 99, 132, 1)');
+                const coresSpO2 = dados.quedas.map(queda => queda === 1 ? 'red' : 'rgba(54, 162, 235, 1)');
                 const tamanhosPonto = dados.quedas.map(queda => queda === 1 ? 8 : 3); //8 grande, 3 padrão
 
                 //Aplica as listas de estilo nas linhas do gráfico
@@ -144,8 +191,14 @@
                 meuGrafico.data.datasets[1].pointRadius = tamanhosPonto;
                 meuGrafico.data.datasets[1].pointBorderColor = coresBPM;
 
+                //Aplica estilos visuais - Gráfico 2
+                graficoSpO2.data.datasets[0].pointBackgroundColor = coresSpO2;
+                graficoSpO2.data.datasets[0].pointRadius = tamanhosPonto;
+                graficoSpO2.data.datasets[0].pointBorderColor = coresSpO2
+
                 // Manda o Chart.js redesenhar com os novos estilps
                 meuGrafico.update('none'); // 'none' evita animação completa a cada update
+                graficoSpO2.update('none');
                 
             } catch (error) {
                 console.error("Erro ao buscar dados:", error);
