@@ -2,3 +2,4 @@ venv/
 __pycache__/
 *.db
 App/simulacao.py
+App/injeta_teste.py

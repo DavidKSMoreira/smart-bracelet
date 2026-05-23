@@ -142,57 +142,41 @@ def api_dados_grafico():
     horas_atras = request.args.get('horas')
 
     if not esp_id_query:
-        return jsonify({"error": "ID não fornecido"}), 400
+        return jsonify({'error': 'esp_id não fornecido'}), 400
 
-    if horas_atras:
-        try:
-            #tenta converter o valor recebido para inteiro
-            horas_atras = int(horas_atras)
-            if horas_atras < 0:
-                raise ValueError("O tempo deve ser positivo")
-        except ValueError:
-            #se nao for um numero valido, recusa a requisição antes de tocar no banco
-            return jsonify({"error": "O parâmetro de horas deve ser um número inteiro positivo"}), 400
-    
     try:
-        conn = sqlite3.connect(DB_NAME)
+        conn = sqlite3.connect('dados_esp32.db')
         cursor = conn.cursor()
-        
+
+        # Trazemos APENAS os registros onde uma QUEDA foi detectada (queda = 1)
         if horas_atras:
-            #busca registros da janela de tempo solicitada
             cursor.execute("""
-                SELECT temperatura, batimento_cardiaco, horario, queda, spo2
-                FROM leituras
-                WHERE esp_id = ? AND horario >= datetime('now', 'localtime', ?)
-                ORDER BY id ASC
-            """, (esp_id_query, f'-{horas_atras} hours'))
-            resultados = cursor.fetchall() 
-
-        else:                 
-            # Pega os últimos 20 registros, por exemplo (para o gráfico não ficar pesado demais)
-            cursor.execute("""
-                SELECT temperatura, batimento_cardiaco, horario, queda, spo2
+                SELECT horario 
                 FROM leituras 
-                WHERE esp_id = ? 
-                ORDER BY id DESC LIMIT 20
+                WHERE esp_id = ? AND queda = 1 AND horario >= datetime('now', 'localtime', ?)
+                ORDER BY id DESC
+            """, (esp_id_query, f'-{horas_atras} hours'))
+        else:
+            cursor.execute("""
+                SELECT horario 
+                FROM leituras 
+                WHERE esp_id = ? AND queda = 1
+                ORDER BY id DESC LIMIT 50
             """, (esp_id_query,))
-            resultados = cursor.fetchall()
-            resultados = list(reversed(resultados)) #inverte a ordem para mostrar do mais antigo para o mais novo
-
+            
+        resultados = cursor.fetchall()
         conn.close()
 
+        # O JSON agora manda apenas a lista de horários das quedas e o total
         dados_json = {
-            'temperatura': [row[0] for row in resultados],
-            'batimentos': [row[1] for row in resultados],
-            'labels': [row[2] for row in resultados],
-            'quedas': [row[3] for row in resultados], #1 queda, 0 normal
-            'spo2': [row[4] for row in resultados]
+            'total_quedas': len(resultados),
+            'horarios_quedas': [row[0] for row in resultados]
         }
 
         return jsonify(dados_json)
 
-    except sqlite3.Error as e:
-        return jsonify({"error": f"Erro no banco de dados: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     inicializar_banco()
