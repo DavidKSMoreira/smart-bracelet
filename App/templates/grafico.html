@@ -1,72 +1,133 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+<!doctype html>
+<html lang="pt-br" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Monitoramento de Quedas</title>
+    <title>Monitor de Quedas - Simpósio</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0a0e1a',
+                        darkCard: '#111627',
+                        accent: '#ff4d6a'
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
-        body { font-family: sans-serif; background-color: #f4f4f4; color: #333; }
-        .dashboard-container {
-            width: 80%; max-width: 800px; margin: 40px auto;
-            padding: 30px; background-color: white;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        * { font-family: 'Outfit', sans-serif; }
+        
+        /* Estilos base que se adaptam ao tema */
+        .card-glass { 
+            backdrop-filter: blur(10px); 
+            transition: all 0.3s ease;
         }
-        h1 { text-align: center; color: #d9534f; }
-        h2 { text-align: center; color: #555; }
         
-        .contador-box {
-            background-color: #fdf2f2; border: 2px solid #d9534f;
-            border-radius: 8px; padding: 20px; text-align: center;
-            margin: 30px 0;
-        }
-        .numero-gigante { font-size: 48px; font-weight: bold; color: #d9534f; margin: 10px 0; }
+        .pulse-dot { animation: pulse-anim 2s infinite; }
+        @keyframes pulse-anim { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #ddd; }
-        th { background-color: #f8f9fa; color: #333; font-weight: bold; }
-        tr:hover { background-color: #f1f1f1; }
-        
-        .painel-controle { text-align: center; margin-bottom: 20px; }
-        select { padding: 8px; font-size: 16px; border-radius: 4px; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     </style>
 </head>
-<body>
-    <div class="dashboard-container">
-        <h1>🚨 Monitor de Quedas</h1>
-        <h2>Dispositivo: <span id="espIdDisplay">{{ esp_id }}</span></h2>
 
-        <div class="painel-controle">
-            <label for="filtroTempo"><strong>Filtrar Histórico: </strong></label>
-            <select id="filtroTempo" onchange="atualizarDashboard()">
-                <option value="">Todo o histórico recente</option>
-                <option value="1">Última 1 hora</option>
-                <option value="6">Últimas 6 horas</option>
-                <option value="24">Últimas 24 horas</option>
-            </select>
+<body class="h-full bg-slate-100 dark:bg-darkBg text-slate-800 dark:text-slate-200 transition-colors duration-300">
+    <div id="app" class="h-full w-full overflow-auto pb-10">
+        
+        <header class="px-6 pt-8 pb-4 flex items-center justify-between max-w-4xl mx-auto">
+            <div>
+                <div class="flex items-center gap-3">
+                    <div class="w-2 h-2 rounded-full pulse-dot bg-green-500"></div>
+                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Central de Monitoramento</h1>
+                </div>
+                <p class="text-sm mt-1 ml-5 text-slate-500 dark:text-slate-400">Detecção de quedas em tempo real</p>
+            </div>
+            
+            <div class="flex items-center gap-6">
+                <select id="filtroTempo" onchange="atualizarDashboard()" class="rounded-lg px-3 py-2 text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+                    <option value="">Todo o histórico</option>
+                    <option value="1">Última 1 hora</option>
+                    <option value="6">Últimas 6 horas</option>
+                    <option value="24">Últimas 24 horas</option>
+                </select>
+
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs font-medium text-accent">DISPOSITIVO</p>
+                    <p class="text-sm font-semibold">{{ esp_id }}</p>
+                </div>
+
+                <button onclick="toggleTheme()" class="p-2 rounded-full bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                    <i data-lucide="moon" id="theme-icon" class="w-5 h-5 text-slate-700 dark:text-yellow-400"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="px-6 max-w-4xl mx-auto">
+            <div class="h-px w-full bg-gradient-to-r from-transparent via-accent to-transparent opacity-50 mb-6"></div>
         </div>
 
-        <div class="contador-box">
-            <h3>Total de Quedas Detectadas</h3>
-            <div class="numero-gigante" id="totalQuedas">0</div>
-        </div>
+        <section class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Quedas no Período</p>
+                <p id="stat-total" class="text-3xl font-bold mt-2 text-accent">0</p>
+            </div>
+            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Último Evento</p>
+                <p id="stat-recent" class="text-lg font-bold mt-3 text-slate-800 dark:text-slate-200">—</p>
+            </div>
+            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Status da Rede</p>
+                <p id="status-rede" class="text-lg font-bold mt-3 text-slate-400 flex items-center justify-center gap-2">
+                    <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Verificando...
+                </p>
+            </div>
+        </section>
 
-        <h3>Histórico de Eventos (Dia e Horário)</h3>
-        <table id="tabelaQuedas">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Data e Hora da Queda</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="corpoTabela">
-                </tbody>
-        </table>
+        <section class="px-6 max-w-4xl mx-auto">
+            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 class="text-lg font-semibold mb-6 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="activity" class="w-5 h-5 text-accent"></i> Registro de Ocorrências
+                </h2>
+                
+                <div id="event-list" class="space-y-3">
+                    <p id="empty-msg" class="text-sm text-center py-8 text-slate-500">Buscando dados no sistema...</p>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script>
+        // Inicializa ícones
+        lucide.createIcons();
+
         const espId = "{{ esp_id }}";
 
+        // Lógica de troca de tema (Dark/Light)
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.setAttribute('data-lucide', 'sun');
+            } else {
+                html.classList.add('dark');
+                icon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons(); // Recarrega o ícone correto
+        }
+
+        // Lógica de busca de dados
         async function atualizarDashboard() {
             try {
                 const horas = document.getElementById('filtroTempo').value;
@@ -76,36 +137,90 @@
                 const response = await fetch(url);
                 const dados = await response.json();
 
-                if (dados.error) return console.error("Erro:", dados.error);
-
-                // Atualiza o contador gigante
-                document.getElementById('totalQuedas').innerText = dados.total_quedas;
-
-                // Limpa a tabela atual
-                const tbody = document.getElementById('corpoTabela');
-                tbody.innerHTML = '';
-
-                // Preenche a tabela com os horários
-                if (dados.total_quedas === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3">Nenhuma queda registrada neste período.</td></tr>';
-                } else {
-                    dados.horarios_quedas.forEach((horario, index) => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${index + 1}</td>
-                            <td><strong>${horario}</strong></td>
-                            <td style="color: red; font-weight: bold;">CRÍTICO</td>
-                        `;
-                        tbody.appendChild(tr);
-                    });
+                if (dados.error) {
+                    console.error("Erro na API:", dados.error);
+                    return;
                 }
+
+                // Atualiza Cards Superiores
+                document.getElementById('stat-total').innerText = dados.total_quedas;
+                
+                if (dados.total_quedas > 0) {
+                    // Pega apenas a hora do último evento para o Card central
+                    const ultima = new Date(dados.horarios_quedas[0]);
+                    document.getElementById('stat-recent').innerText = ultima.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                } else {
+                    document.getElementById('stat-recent').innerText = "—";
+                }
+
+                const statusEl = document.getElementById('status-rede');
+                
+                if (dados.ultima_comunicacao) {
+                    // O banco manda algo como "2026-05-23 14:30:00". Trocamos o espaço por T para o JS entender perfeito.
+                    const dataBanco = new Date(dados.ultima_comunicacao.replace(' ', 'T'));
+                    const dataAgora = new Date();
+                    
+                    // Diferença em milissegundos convertida para segundos
+                    const segundosAtras = (dataAgora - dataBanco) / 1000;
+                    
+                    // Se recebemos um dado há menos de 15 segundos, está CONECTADO!
+                    if (segundosAtras <= 15) {
+                        statusEl.className = "text-lg font-bold mt-3 text-green-500 flex items-center justify-center gap-2";
+                        statusEl.innerHTML = `<i data-lucide="wifi" class="w-5 h-5"></i> Conectado`;
+                    } else {
+                        // Passou de 15 segundos em silêncio? OFFLINE!
+                        statusEl.className = "text-lg font-bold mt-3 text-red-500 flex items-center justify-center gap-2";
+                        statusEl.innerHTML = `<i data-lucide="wifi-off" class="w-5 h-5"></i> Offline`;
+                    }
+                } else {
+                    statusEl.innerHTML = `<i data-lucide="help-circle" class="w-5 h-5"></i> Sem Dados`;
+                }
+                
+                lucide.createIcons(); // Recarrega os ícones para mostrar o WiFi ou WiFi cortado
+
+                // Preenche a lista de eventos
+                const container = document.getElementById('event-list');
+                
+                if (dados.total_quedas === 0) {
+                    container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhuma queda detectada neste período.</p>';
+                    return;
+                }
+
+                container.innerHTML = ''; // Limpa a lista antes de redesenhar
+
+                dados.horarios_quedas.forEach((horarioStr) => {
+                    const dataObj = new Date(horarioStr);
+                    const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+                    const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    const row = document.createElement('div');
+                    row.className = 'fade-in flex items-center justify-between rounded-lg px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
+                    
+                    row.innerHTML = `
+                        <div class="flex items-center gap-4">
+                            <div class="w-3 h-3 rounded-full bg-accent pulse-dot"></div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white">Alerta de Queda</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">${dataFormatada} • ${horaFormatada}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-xs font-bold px-3 py-1 rounded bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-accent border border-red-200 dark:border-red-500/20">
+                                CRÍTICO
+                            </span>
+                        </div>
+                    `;
+                    container.appendChild(row);
+                });
+
             } catch (error) {
-                console.error("Erro ao buscar dados:", error);
+                console.error("Erro de conexão:", error);
             }
         }
 
+        // Executa a primeira vez e configura o loop
         atualizarDashboard();
-        setInterval(atualizarDashboard, 3000); // Atualiza a cada 3 segundos
+        setInterval(atualizarDashboard, 3000);
     </script>
 </body>
 </html>

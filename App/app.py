@@ -148,7 +148,7 @@ def api_dados_grafico():
         conn = sqlite3.connect('dados_esp32.db')
         cursor = conn.cursor()
 
-        # Trazemos APENAS os registros onde uma QUEDA foi detectada (queda = 1)
+        # 1. Consulta original: Traz apenas as quedas para a tabela e o contador
         if horas_atras:
             cursor.execute("""
                 SELECT horario 
@@ -165,12 +165,26 @@ def api_dados_grafico():
             """, (esp_id_query,))
             
         resultados = cursor.fetchall()
+
+        # 2. NOVA CONSULTA: Pega o horário da última leitura enviada (qualquer uma)
+        cursor.execute("""
+            SELECT horario 
+            FROM leituras 
+            WHERE esp_id = ? 
+            ORDER BY id DESC LIMIT 1
+        """, (esp_id_query,))
+        
+        ultimo_sinal = cursor.fetchone()
         conn.close()
 
-        # O JSON agora manda apenas a lista de horários das quedas e o total
+        # Se houver um último sinal, extraímos o texto. Se o banco for novo, devolve None.
+        ultima_comunicacao = ultimo_sinal[0] if ultimo_sinal else None
+
+        # Empacota e envia
         dados_json = {
             'total_quedas': len(resultados),
-            'horarios_quedas': [row[0] for row in resultados]
+            'horarios_quedas': [row[0] for row in resultados],
+            'ultima_comunicacao': ultima_comunicacao
         }
 
         return jsonify(dados_json)
