@@ -43,11 +43,11 @@ def receber_dados():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM clientes where esp_id = ?",(dados['esp_id'],))
         resultado = cursor.fetchone()
+        conn.close()
         
-        dados['email_noitfy'] = resultado['email_noitfy']
+        dados['email_notify'] = resultado['email_notify']
         dados['number_notify'] = resultado['number_notify']
         dados['nome'] = resultado['nome']
-        
         # Envia as notificações
         email_sent = enviar_email_notificacao(dados)
         sms_sent = enviar_sms_notificacao(dados)
@@ -79,7 +79,7 @@ def receber_dados():
             resultado = cursor.fetchone()
 
             if resultado:
-                dados['email_noitfy'] = resultado['email_noitfy']
+                dados['email_notify'] = resultado['email_notify']
                 dados['nome'] = resultado['nome']
 
                 #envia o email mesmo sem queda
@@ -145,7 +145,7 @@ def api_dados_grafico():
         return jsonify({'error': 'esp_id não fornecido'}), 400
 
     try:
-        conn = sqlite3.connect('dados_esp32.db')
+        conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
 
         # 1. Consulta original: Traz apenas as quedas para a tabela e o contador

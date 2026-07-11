@@ -42,7 +42,7 @@ def inicializar_banco():
         nome TEXT NOT NULL,
         esp_id TEXT NOT NULL UNIQUE,
         email TEXT NOT NULL,
-        email_noitfy TEXT NOT NULL UNIQUE,
+        email_notify TEXT NOT NULL UNIQUE,
         number_notify TEXT NOT NULL UNIQUE
     )
     """)

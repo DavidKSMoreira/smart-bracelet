@@ -39,12 +39,12 @@ def enviar_email_notificacao(dados_esp):
         msg = MIMEText(msg_body)
         msg['Subject'] = msg_subject
         msg['From'] = EMAIL_ADDRESS
-        msg['To'] = dados_esp['email_noitfy']
+        msg['To'] = dados_esp['email_notify']
 
         # Conecta ao servidor SMTP do Gmail
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
             smtp_server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
-            smtp_server.sendmail(EMAIL_ADDRESS, dados_esp['email_noitfy'], msg.as_string())
+            smtp_server.sendmail(EMAIL_ADDRESS, dados_esp['email_notify'], msg.as_string())
         
         print("Notificação por e-mail enviada com sucesso!")
         return True
