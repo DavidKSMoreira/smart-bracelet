@@ -44,7 +44,7 @@ def receber_dados():
         cursor.execute("SELECT * FROM clientes where esp_id = ?",(dados['esp_id'],))
         resultado = cursor.fetchone()
         
-        dados['email_noitfy'] = resultado['email_noitfy']
+        dados['email_notify'] = resultado['email_notify']
         dados['number_notify'] = resultado['number_notify']
         dados['nome'] = resultado['nome']
         
@@ -79,7 +79,7 @@ def receber_dados():
             resultado = cursor.fetchone()
 
             if resultado:
-                dados['email_noitfy'] = resultado['email_noitfy']
+                dados['email_notify'] = resultado['email_notify']
                 dados['nome'] = resultado['nome']
 
                 #envia o email mesmo sem queda
