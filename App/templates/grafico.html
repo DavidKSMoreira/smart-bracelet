@@ -22,6 +22,9 @@
     </script>
     
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+    <!-- Adição da biblioteca Chart.js para o gráfico de Sinais Vitais -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -50,7 +53,7 @@
                     <div class="w-2 h-2 rounded-full pulse-dot bg-green-500"></div>
                     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Central de Monitoramento</h1>
                 </div>
-                <p class="text-sm mt-1 ml-5 text-slate-500 dark:text-slate-400">Detecção de quedas em tempo real</p>
+                <p class="text-sm mt-1 ml-5 text-slate-500 dark:text-slate-400">Detecção em tempo real</p>
             </div>
             
             <div class="flex items-center gap-6">
@@ -78,7 +81,8 @@
 
         <section class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
             <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Quedas no Período</p>
+                <!-- Título atualizado para Eventos -->
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Eventos no Período</p>
                 <p id="stat-total" class="text-3xl font-bold mt-2 text-accent">0</p>
             </div>
             <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -91,6 +95,41 @@
                     <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Verificando...
                 </p>
             </div>
+        </section>
+
+        <!-- Nova Seção: Gráficos de Sinais Vitais Separados -->
+        <section class="px-6 pb-6 max-w-4xl mx-auto space-y-6">
+            
+            <!-- Gráfico 1: Batimento Cardíaco -->
+            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="heart" class="w-5 h-5 text-yellow-500"></i> Batimento Cardíaco (BPM)
+                </h2>
+                <div class="w-full h-48 relative">
+                    <canvas id="bpmChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico 2: Temperatura -->
+            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="thermometer" class="w-5 h-5 text-blue-500"></i> Temperatura (°C)
+                </h2>
+                <div class="w-full h-48 relative">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Gráfico 3: SpO2 -->
+            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="activity" class="w-5 h-5 text-green-500"></i> Saturação de Oxigênio (SpO2 %)
+                </h2>
+                <div class="w-full h-48 relative">
+                    <canvas id="spo2Chart"></canvas>
+                </div>
+            </div>
+
         </section>
 
         <section class="px-6 max-w-4xl mx-auto">
@@ -111,6 +150,93 @@
         lucide.createIcons();
 
         const espId = "{{ esp_id }}";
+
+        // --- RENDERIZAÇÃO DOS GRÁFICOS (CHART.JS) VIA JINJA2 ---
+        const dadosVitais = {{ dados | safe }};
+        const rotulosVitais = {{ rotulos | safe }};
+
+        if (dadosVitais && rotulosVitais && rotulosVitais.length > 0) {
+            
+            // Configurações Globais Compartilhadas
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false } // Ocultado pois o título já descreve
+                },
+                scales: {
+                    y: { type: 'linear', display: true, position: 'left' }
+                }
+            };
+
+            // 1. Gráfico de Batimento Cardíaco (BPM)
+            const ctxBpm = document.getElementById('bpmChart').getContext('2d');
+            new Chart(ctxBpm, {
+                type: 'line',
+                data: {
+                    labels: rotulosVitais,
+                    datasets: [{
+                        label: 'Batimento Cardíaco (BPM)',
+                        data: dadosVitais.batimento_cardiaco,
+                        borderColor: '#eab308', // Amarelo
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // 2. Gráfico de Temperatura
+            const ctxTemp = document.getElementById('tempChart').getContext('2d');
+            new Chart(ctxTemp, {
+                type: 'line',
+                data: {
+                    labels: rotulosVitais,
+                    datasets: [{
+                        label: 'Temperatura (°C)',
+                        data: dadosVitais.temperatura,
+                        borderColor: '#3b82f6', // Azul
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: chartOptions
+            });
+
+            // 3. Gráfico de SpO2
+            const ctxSpo2 = document.getElementById('spo2Chart').getContext('2d');
+            new Chart(ctxSpo2, {
+                type: 'line',
+                data: {
+                    labels: rotulosVitais,
+                    datasets: [{
+                        label: 'SpO2 (%)',
+                        data: dadosVitais.spo2,
+                        borderColor: '#10b981', // Verde
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        y: { 
+                            type: 'linear', 
+                            display: true, 
+                            position: 'left',
+                            suggestedMin: 80, // Limite mínimo sugerido para visualização de SpO2
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+        }
 
         // Lógica de troca de tema (Dark/Light)
         function toggleTheme() {
@@ -143,11 +269,11 @@
                 }
 
                 // Atualiza Cards Superiores
-                document.getElementById('stat-total').innerText = dados.total_quedas;
+                document.getElementById('stat-total').innerText = dados.total_eventos;
                 
-                if (dados.total_quedas > 0) {
+                if (dados.total_eventos > 0) {
                     // Pega apenas a hora do último evento para o Card central
-                    const ultima = new Date(dados.horarios_quedas[0]);
+                    const ultima = new Date(dados.eventos[0].horario);
                     document.getElementById('stat-recent').innerText = ultima.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 } else {
                     document.getElementById('stat-recent').innerText = "—";
@@ -178,35 +304,47 @@
                 
                 lucide.createIcons(); // Recarrega os ícones para mostrar o WiFi ou WiFi cortado
 
-                // Preenche a lista de eventos
+                // Preenche a lista de eventos com cores condicionais
                 const container = document.getElementById('event-list');
                 
-                if (dados.total_quedas === 0) {
-                    container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhuma queda detectada neste período.</p>';
+                if (dados.total_eventos === 0) {
+                    container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhum alerta detectado neste período.</p>';
                     return;
                 }
 
                 container.innerHTML = ''; // Limpa a lista antes de redesenhar
 
-                dados.horarios_quedas.forEach((horarioStr) => {
-                    const dataObj = new Date(horarioStr);
+                dados.eventos.forEach((evento) => {
+                    const dataObj = new Date(evento.horario);
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
                     const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                    // Condicional de Interface Gráfica
+                    let ehQueda = evento.queda === 1;
+                    let titulo = ehQueda ? "Alerta de Queda" : "Anomalia Sinais Vitais";
+                    let dotColor = ehQueda ? "bg-accent" : "bg-yellow-500";
+                    let badgeClass = ehQueda 
+                        ? "bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-accent border-red-200 dark:border-red-500/20" 
+                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-500 border-yellow-200 dark:border-yellow-500/20";
+                    let textoBadge = ehQueda ? "CRÍTICO" : "ATENÇÃO";
+                    let resumo = ehQueda ? "" : `BPM: ${evento.batimento} | SpO2: ${evento.spo2}%`;
 
                     const row = document.createElement('div');
                     row.className = 'fade-in flex items-center justify-between rounded-lg px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
                     
                     row.innerHTML = `
                         <div class="flex items-center gap-4">
-                            <div class="w-3 h-3 rounded-full bg-accent pulse-dot"></div>
+                            <div class="w-3 h-3 rounded-full ${dotColor} pulse-dot"></div>
                             <div>
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">Alerta de Queda</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">${dataFormatada} • ${horaFormatada}</p>
+                                <p class="text-sm font-semibold text-slate-900 dark:text-white">${titulo}</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    ${dataFormatada} • ${horaFormatada} ${resumo ? `<br><span class="font-medium text-slate-600 dark:text-slate-300">${resumo}</span>` : ''}
+                                </p>
                             </div>
                         </div>
                         <div class="flex items-center">
-                            <span class="text-xs font-bold px-3 py-1 rounded bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-accent border border-red-200 dark:border-red-500/20">
-                                CRÍTICO
+                            <span class="text-xs font-bold px-3 py-1 rounded border ${badgeClass}">
+                                ${textoBadge}
                             </span>
                         </div>
                     `;

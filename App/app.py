@@ -105,9 +105,9 @@ def mostrar_grafico():
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
-        # Busca temperatura e horário, ordenados por ID (ordem de chegada)
+        # Busca temperatura, batimento, SPO2 e horário, ordenados por ID (ordem de chegada)
         cursor.execute("""
-            SELECT temperatura, batimento_cardiaco, horario 
+            SELECT temperatura, batimento_cardiaco, spo2, horario 
             FROM leituras 
             WHERE esp_id = ? 
             ORDER BY id ASC
@@ -121,10 +121,13 @@ def mostrar_grafico():
             dados_valores = []
             rotulos = []
         else:
-            # Separa os resultados em duas listas para o gráfico
-            # row[0] é temperatura, row[1] é batimento_cardiaco, row[1] é horario
-            dados_valores = {'temperatura': [row[0] for row in resultados], 'batimento_cardiaco' : [row[1] for row in resultados]}
-            rotulos = [row[2] for row in resultados]
+            # Extrai os resultados em listas para o gráfico incluindo o SpO2
+            dados_valores = {
+                'temperatura': [row[0] for row in resultados], 
+                'batimento_cardiaco': [row[1] for row in resultados],
+                'spo2': [row[2] for row in resultados]
+            }
+            rotulos = [row[3] for row in resultados]
 
         # Renderiza o template HTML
         return render_template('grafico.html', 
@@ -135,7 +138,6 @@ def mostrar_grafico():
     except sqlite3.Error as e:
         return f"<h1>Erro no Banco de Dados</h1><p>{e}</p>", 500
         
-
 @app.route('/api/dados_grafico')
 def api_dados_grafico():
     esp_id_query = request.args.get('esp_id')
@@ -148,25 +150,25 @@ def api_dados_grafico():
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
 
-        # 1. Consulta original: Traz apenas as quedas para a tabela e o contador
+        # 1. NOVA CONSULTA: Traz quedas e anomalias vitais (BPM > 120 ou SpO2 < 90)
         if horas_atras:
             cursor.execute("""
-                SELECT horario 
+                SELECT horario, queda, batimento_cardiaco, spo2 
                 FROM leituras 
-                WHERE esp_id = ? AND queda = 1 AND horario >= datetime('now', 'localtime', ?)
+                WHERE esp_id = ? AND (queda = 1 OR batimento_cardiaco > 120 OR spo2 < 90) AND horario >= datetime('now', 'localtime', ?)
                 ORDER BY id DESC
             """, (esp_id_query, f'-{horas_atras} hours'))
         else:
             cursor.execute("""
-                SELECT horario 
+                SELECT horario, queda, batimento_cardiaco, spo2 
                 FROM leituras 
-                WHERE esp_id = ? AND queda = 1
+                WHERE esp_id = ? AND (queda = 1 OR batimento_cardiaco > 120 OR spo2 < 90)
                 ORDER BY id DESC LIMIT 50
             """, (esp_id_query,))
             
         resultados = cursor.fetchall()
 
-        # 2. NOVA CONSULTA: Pega o horário da última leitura enviada (qualquer uma)
+        # 2. Pega o horário da última leitura enviada
         cursor.execute("""
             SELECT horario 
             FROM leituras 
@@ -177,13 +179,22 @@ def api_dados_grafico():
         ultimo_sinal = cursor.fetchone()
         conn.close()
 
-        # Se houver um último sinal, extraímos o texto. Se o banco for novo, devolve None.
         ultima_comunicacao = ultimo_sinal[0] if ultimo_sinal else None
 
-        # Empacota e envia
+        # 3. Formatação dos dados para o Frontend
+        eventos = []
+        for row in resultados:
+            eventos.append({
+                'horario': row[0],
+                'queda': row[1],
+                'batimento': row[2],
+                'spo2': row[3]
+            })
+
+        # Mudamos de 'total_quedas' para 'total_eventos' e retornamos a lista enriquecida
         dados_json = {
-            'total_quedas': len(resultados),
-            'horarios_quedas': [row[0] for row in resultados],
+            'total_eventos': len(eventos),
+            'eventos': eventos,
             'ultima_comunicacao': ultima_comunicacao
         }
 
