@@ -22,7 +22,6 @@
     </script>
     
     <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
-    <!-- Adição da biblioteca Chart.js para o gráfico de Sinais Vitais -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -30,7 +29,6 @@
     <style>
         * { font-family: 'Outfit', sans-serif; }
         
-        /* Estilos base que se adaptam ao tema */
         .card-glass { 
             backdrop-filter: blur(10px); 
             transition: all 0.3s ease;
@@ -81,7 +79,6 @@
 
         <section class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
             <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <!-- Título atualizado para Eventos -->
                 <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Eventos no Período</p>
                 <p id="stat-total" class="text-3xl font-bold mt-2 text-accent">0</p>
             </div>
@@ -97,7 +94,7 @@
             </div>
         </section>
 
-        <!-- Nova Seção: Gráficos de Sinais Vitais Separados -->
+        <!-- Seção: Gráficos e Alertas Vitais Separados -->
         <section class="px-6 pb-6 max-w-4xl mx-auto space-y-6">
             
             <!-- Gráfico 1: Batimento Cardíaco -->
@@ -120,13 +117,16 @@
                 </div>
             </div>
 
-            <!-- Gráfico 3: SpO2 -->
-            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
-                    <i data-lucide="activity" class="w-5 h-5 text-green-500"></i> Saturação de Oxigênio (SpO2 %)
+            <!-- Alerta 3: SpO2 (Substituindo o antigo Gráfico) -->
+            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center">
+                <h2 class="text-lg font-semibold mb-2 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="activity" class="w-5 h-5 text-blue-400"></i> Saturação de Oxigênio (SpO2)
                 </h2>
-                <div class="w-full h-48 relative">
-                    <canvas id="spo2Chart"></canvas>
+                <div class="mt-4 flex flex-col items-center">
+                    <div id="spo2-value" class="text-5xl font-bold text-slate-300">--%</div>
+                    <div id="spo2-status" class="mt-4 px-4 py-2 rounded-full text-sm font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 transition-all duration-300">
+                        Aguardando dados...
+                    </div>
                 </div>
             </div>
 
@@ -151,18 +151,16 @@
 
         const espId = "{{ esp_id }}";
 
-        // --- RENDERIZAÇÃO DOS GRÁFICOS (CHART.JS) VIA JINJA2 ---
         const dadosVitais = {{ dados | safe }};
         const rotulosVitais = {{ rotulos | safe }};
 
         if (dadosVitais && rotulosVitais && rotulosVitais.length > 0) {
             
-            // Configurações Globais Compartilhadas
             const chartOptions = {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false } // Ocultado pois o título já descreve
+                    legend: { display: false } 
                 },
                 scales: {
                     y: { type: 'linear', display: true, position: 'left' }
@@ -178,7 +176,7 @@
                     datasets: [{
                         label: 'Batimento Cardíaco (BPM)',
                         data: dadosVitais.batimento_cardiaco,
-                        borderColor: '#eab308', // Amarelo
+                        borderColor: '#eab308', 
                         backgroundColor: 'rgba(234, 179, 8, 0.1)',
                         borderWidth: 2,
                         tension: 0.3,
@@ -197,7 +195,7 @@
                     datasets: [{
                         label: 'Temperatura (°C)',
                         data: dadosVitais.temperatura,
-                        borderColor: '#3b82f6', // Azul
+                        borderColor: '#3b82f6', 
                         backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         borderWidth: 2,
                         tension: 0.3,
@@ -207,35 +205,24 @@
                 options: chartOptions
             });
 
-            // 3. Gráfico de SpO2
-            const ctxSpo2 = document.getElementById('spo2Chart').getContext('2d');
-            new Chart(ctxSpo2, {
-                type: 'line',
-                data: {
-                    labels: rotulosVitais,
-                    datasets: [{
-                        label: 'SpO2 (%)',
-                        data: dadosVitais.spo2,
-                        borderColor: '#10b981', // Verde
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: {
-                    ...chartOptions,
-                    scales: {
-                        y: { 
-                            type: 'linear', 
-                            display: true, 
-                            position: 'left',
-                            suggestedMin: 80, // Limite mínimo sugerido para visualização de SpO2
-                            suggestedMax: 100
-                        }
-                    }
+            // 3. Alerta de Baixa Saturação (SpO2)
+            if (dadosVitais.spo2 && dadosVitais.spo2.length > 0) {
+                const ultimaSpo2 = dadosVitais.spo2[dadosVitais.spo2.length - 1];
+                const valorEl = document.getElementById('spo2-value');
+                const statusEl = document.getElementById('spo2-status');
+                
+                valorEl.innerText = ultimaSpo2 + '%';
+                
+                if (ultimaSpo2 < 90) {
+                    valorEl.className = "text-5xl font-bold text-red-600 dark:text-red-500 pulse-dot";
+                    statusEl.innerText = "ALERTA: BAIXA SATURAÇÃO";
+                    statusEl.className = "mt-4 px-4 py-2 rounded-full text-sm font-bold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-500/30";
+                } else {
+                    valorEl.className = "text-5xl font-bold text-green-600 dark:text-green-500";
+                    statusEl.innerText = "Saturação Normal";
+                    statusEl.className = "mt-4 px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 border border-green-200 dark:border-green-500/30";
                 }
-            });
+            }
         }
 
         // Lógica de troca de tema (Dark/Light)
@@ -250,10 +237,10 @@
                 html.classList.add('dark');
                 icon.setAttribute('data-lucide', 'moon');
             }
-            lucide.createIcons(); // Recarrega o ícone correto
+            lucide.createIcons(); 
         }
 
-        // Lógica de busca de dados
+        // Lógica de busca de dados (Ocorrências)
         async function atualizarDashboard() {
             try {
                 const horas = document.getElementById('filtroTempo').value;
@@ -272,7 +259,6 @@
                 document.getElementById('stat-total').innerText = dados.total_eventos;
                 
                 if (dados.total_eventos > 0) {
-                    // Pega apenas a hora do último evento para o Card central
                     const ultima = new Date(dados.eventos[0].horario);
                     document.getElementById('stat-recent').innerText = ultima.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 } else {
@@ -282,19 +268,15 @@
                 const statusEl = document.getElementById('status-rede');
                 
                 if (dados.ultima_comunicacao) {
-                    // O banco manda algo como "2026-05-23 14:30:00". Trocamos o espaço por T para o JS entender perfeito.
                     const dataBanco = new Date(dados.ultima_comunicacao.replace(' ', 'T'));
                     const dataAgora = new Date();
                     
-                    // Diferença em milissegundos convertida para segundos
                     const segundosAtras = (dataAgora - dataBanco) / 1000;
                     
-                    // Se recebemos um dado há menos de 15 segundos, está CONECTADO!
                     if (segundosAtras <= 15) {
                         statusEl.className = "text-lg font-bold mt-3 text-green-500 flex items-center justify-center gap-2";
                         statusEl.innerHTML = `<i data-lucide="wifi" class="w-5 h-5"></i> Conectado`;
                     } else {
-                        // Passou de 15 segundos em silêncio? OFFLINE!
                         statusEl.className = "text-lg font-bold mt-3 text-red-500 flex items-center justify-center gap-2";
                         statusEl.innerHTML = `<i data-lucide="wifi-off" class="w-5 h-5"></i> Offline`;
                     }
@@ -302,9 +284,9 @@
                     statusEl.innerHTML = `<i data-lucide="help-circle" class="w-5 h-5"></i> Sem Dados`;
                 }
                 
-                lucide.createIcons(); // Recarrega os ícones para mostrar o WiFi ou WiFi cortado
+                lucide.createIcons();
 
-                // Preenche a lista de eventos com cores condicionais
+                // Preenche a lista de eventos
                 const container = document.getElementById('event-list');
                 
                 if (dados.total_eventos === 0) {
@@ -312,14 +294,13 @@
                     return;
                 }
 
-                container.innerHTML = ''; // Limpa a lista antes de redesenhar
+                container.innerHTML = ''; 
 
                 dados.eventos.forEach((evento) => {
                     const dataObj = new Date(evento.horario);
                     const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
                     const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-                    // Condicional de Interface Gráfica
                     let ehQueda = evento.queda === 1;
                     let titulo = ehQueda ? "Alerta de Queda" : "Anomalia Sinais Vitais";
                     let dotColor = ehQueda ? "bg-accent" : "bg-yellow-500";
@@ -356,7 +337,6 @@
             }
         }
 
-        // Executa a primeira vez e configura o loop
         atualizarDashboard();
         setInterval(atualizarDashboard, 3000);
     </script>

@@ -3,3 +3,5 @@ __pycache__/
 *.db
 App/simulacao.py
 App/injeta_teste.py
+.env
+.gitignore
