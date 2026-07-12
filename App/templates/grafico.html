@@ -240,6 +240,9 @@
             lucide.createIcons(); 
         }
 
+        // Variável global para rastrear se houve mudança nos eventos
+        let estadoAnteriorEventos = "";
+
         // Lógica de busca de dados (Ocorrências)
         async function atualizarDashboard() {
             try {
@@ -286,13 +289,19 @@
                 
                 lucide.createIcons();
 
-                // Preenche a lista de eventos
-                const container = document.getElementById('event-list');
+                // Converte a lista atual em texto para comparar com a anterior
+                const estadoAtualEventos = JSON.stringify(dados.eventos);
                 
-                if (dados.total_eventos === 0) {
-                    container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhum alerta detectado neste período.</p>';
-                    return;
-                }
+                // Só processa e recria a lista HTML se houver diferença nos dados
+                if (estadoAtualEventos !== estadoAnteriorEventos) {
+                    estadoAnteriorEventos = estadoAtualEventos; // Atualiza o estado
+                    
+                    const container = document.getElementById('event-list');
+                    
+                    if (dados.total_eventos === 0) {
+                        container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhum alerta detectado neste período.</p>';
+                        return;
+                    }
 
                 container.innerHTML = ''; 
 
@@ -310,27 +319,28 @@
                     let textoBadge = ehQueda ? "CRÍTICO" : "ATENÇÃO";
                     let resumo = ehQueda ? "" : `BPM: ${evento.batimento} | SpO2: ${evento.spo2}%`;
 
-                    const row = document.createElement('div');
-                    row.className = 'fade-in flex items-center justify-between rounded-lg px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
-                    
-                    row.innerHTML = `
-                        <div class="flex items-center gap-4">
-                            <div class="w-3 h-3 rounded-full ${dotColor} pulse-dot"></div>
-                            <div>
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white">${titulo}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    ${dataFormatada} • ${horaFormatada} ${resumo ? `<br><span class="font-medium text-slate-600 dark:text-slate-300">${resumo}</span>` : ''}
-                                </p>
+                        const row = document.createElement('div');
+                        row.className = 'fade-in flex items-center justify-between rounded-lg px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
+                        
+                        row.innerHTML = `
+                            <div class="flex items-center gap-4">
+                                <div class="w-3 h-3 rounded-full ${dotColor} pulse-dot"></div>
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">${titulo}</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                        ${dataFormatada} • ${horaFormatada} ${resumo ? `<br><span class="font-medium text-slate-600 dark:text-slate-300">${resumo}</span>` : ''}
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="text-xs font-bold px-3 py-1 rounded border ${badgeClass}">
-                                ${textoBadge}
-                            </span>
-                        </div>
-                    `;
-                    container.appendChild(row);
-                });
+                            <div class="flex items-center">
+                                <span class="text-xs font-bold px-3 py-1 rounded border ${badgeClass}">
+                                    ${textoBadge}
+                                </span>
+                            </div>
+                        `;
+                        container.appendChild(row);
+                    });
+                } // Fim da verificação de mudança de dados
 
             } catch (error) {
                 console.error("Erro de conexão:", error);
