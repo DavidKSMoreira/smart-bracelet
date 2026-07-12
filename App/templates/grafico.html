@@ -163,7 +163,41 @@
                     legend: { display: false } 
                 },
                 scales: {
-                    y: { type: 'linear', display: true, position: 'left' }
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 6, // Limita a quantidade de rótulos para evitar sobreposição
+                            maxRotation: 0,   // Mantém o texto sempre na horizontal
+                            color: '#64748b', // Cor neutra que se adapta bem ao tema
+                            callback: function(value) {
+                                const rotulo = this.getLabelForValue(value);
+                                if (!rotulo) return '';
+                                
+                                // Tenta converter a string do rótulo para um objeto Date
+                                // e formata para exibir apenas Hora e Minuto
+                                const dataObj = new Date(rotulo);
+                                if (!isNaN(dataObj.getTime())) {
+                                    return dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                }
+                                return rotulo; // Retorna o texto original caso não seja uma data válida
+                            }
+                        },
+                        grid: {
+                            display: false, // Remove as linhas verticais de grade para um visual mais "limpo"
+                            drawBorder: false
+                        }
+                    },
+                    y: { 
+                        type: 'linear', 
+                        display: true, 
+                        position: 'left',
+                        ticks: {
+                            color: '#64748b'
+                        },
+                        grid: {
+                            color: 'rgba(100, 116, 139, 0.1)', // Linhas horizontais bem suaves e translúcidas
+                            drawBorder: false
+                        }
+                    }
                 }
             };
 
