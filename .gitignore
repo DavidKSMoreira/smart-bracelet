@@ -5,3 +5,5 @@ App/simulacao.py
 App/injeta_teste.py
 .env
 .gitignore
+QUEDA_BMI160/dataset
+QUEDA_BMI160/queda_simulada.csv

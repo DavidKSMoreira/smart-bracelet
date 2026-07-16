@@ -1,123 +1,116 @@
-// Código Corrigido (sketch_jul27a.ino)
-
+#include <BMI160Gen.h>           // https://github.com/hanyazou/BMI160-Arduino
 #include <Wire.h>
-#include "DFRobot_BMI160.h"
+#include <math.h>
+#include "rf_model.h"            // Arquivo gerado pelo micromlgen utilizando Árvore de Decisão
 
-// Instância do sensor BMI160
-DFRobot_BMI160 bmi160;
+// --- Configurações I2C para o ESP32-C3 ---
+const int i2c_addr = 0x68;  
+const int sda_pin = 8;      
+const int scl_pin = 9;      
 
-// -- Configurações de Pinos e Detecção --
-const int INTERRUPT_PIN = 0;
-volatile bool fallDetectedFlag = false;
-const float FALL_THRESHOLD_G = 0.4;
-const float IMPACT_THRESHOLD_G = 2.2;
-const uint8_t FALL_DURATION_MS = 20;
+// --- Configurações da Janela de Dados ---
+// Adaptado para 450 amostras (9 segundos a 50Hz) para refletir a estrutura de treinamento
+const int WINDOW_SIZE = 450; 
+int sample_count = 0;
 
-void ICACHE_RAM_ATTR fallInterruptRoutine() {
-  fallDetectedFlag = true;
-}
+float x_buf[WINDOW_SIZE];
+float y_buf[WINDOW_SIZE];
+float z_buf[WINDOW_SIZE];
 
-/**
- * @brief Configura a interrupção de Baixa Gravidade (Low-G) no BMI160
- * VERSÃO CORRIGIDA: Adiciona o 4º argumento 'bmi160.Obmi160' nas chamadas setRegs.
- */
-void setupLowGInterrupt() {
-  Serial.println("Configurando interrupcao de Baixa-G (Low-G)...");
-
-  // Limiar (Threshold)
-  uint8_t low_th = (uint8_t)(FALL_THRESHOLD_G * 1000 / 7.81);
-  bmi160.setRegs(BMI160_INT_LOWHIGH_4_ADDR, &low_th, 1, bmi160.Obmi160);
-
-  // Duração (Duration)
-  uint8_t low_dur = (uint8_t)((FALL_DURATION_MS / 2.5) - 1);
-  bmi160.setRegs(BMI160_INT_LOWHIGH_3_ADDR, &low_dur, 1, bmi160.Obmi160);
-
-  // Modo (Histerese + soma de eixos)
-  uint8_t low_mode = 0b00001001;
-  bmi160.setRegs(BMI160_INT_LOWHIGH_2_ADDR, &low_mode, 1, bmi160.Obmi160);
-
-  // Habilitar a interrupção de Low-G
-  uint8_t int_en_1 = 0b00001000;
-  bmi160.setRegs(BMI160_INT_ENABLE_1_ADDR, &int_en_1, 1, bmi160.Obmi160);
-
-  // Mapear a interrupção para o pino INT1
-  uint8_t int_map_0 = 0b00000001;
-  bmi160.setRegs(BMI160_INT_MAP_0_ADDR, &int_map_0, 1, bmi160.Obmi160);
-
-  // Configurar o comportamento do pino INT1 (output, active high, edge)
-  uint8_t int_out_ctrl = 0b00001010;
-  bmi160.setRegs(BMI160_INT_OUT_CTRL_ADDR, &int_out_ctrl, 1, bmi160.Obmi160);
-
-  // Configurar interrupção como não-travada (non-latched)
-  uint8_t int_latch = 0b00000000;
-  bmi160.setRegs(BMI160_INT_LATCH_ADDR, &int_latch, 1, bmi160.Obmi160);
-  
-  Serial.println("Interrupcao Low-G configurada!");
-}
-
+// --- Pinos de Alerta ---
+const int ALARM_PIN = 3; // Ajuste conforme o pino desejado na sua montagem
 
 void setup() {
   Serial.begin(115200);
-  while (!Serial);
+  pinMode(ALARM_PIN, OUTPUT);
+  digitalWrite(ALARM_PIN, LOW);
 
-  Wire.begin(8, 9);
+  Wire.begin(sda_pin, scl_pin); 
   
-  if (bmi160.I2cInit() != BMI160_OK) {
-    Serial.println("Falha ao inicializar o BMI160!");
+  if (!BMI160.begin(BMI160GenClass::I2C_MODE, i2c_addr)) { 
+    Serial.println("Falha na inicializacao do BMI160!");
     while (1);
   }
-  Serial.println("BMI160 inicializado com sucesso!");
-
-  setupLowGInterrupt();
-
-  pinMode(INTERRUPT_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(INTERRUPT_PIN), fallInterruptRoutine, RISING);
   
-  Serial.println("\nSistema pronto. Aguardando deteccao de queda...");
+  // Range de +-4g configurado para a conversão de unidades
+  BMI160.setAccelerometerRange(4);
+  Serial.println("BMI160 inicializado! Iniciando coleta para inferencia (Janelas de 9s)...");
 }
 
+// Função para calcular Variância (Amostral)
+float calculateVariance(float* array, int size, float mean) {
+  float temp = 0;
+  for(int i = 0; i < size; i++) {
+    temp += (array[i] - mean) * (array[i] - mean);
+  }
+  return temp / (size - 1); // N-1 para variância amostral garantindo compatibilidade com ddof=1 do Pandas
+}
 
-void loop() {
-  if (fallDetectedFlag) {
-    Serial.println("-------------------------------------------");
-    Serial.println("EVENTO DE QUEDA LIVRE DETECTADO (LOW-G)!");
-    Serial.println("Verificando impacto nos proximos 500ms...");
+// Função para extrair as 4 características de um eixo
+void extractFeaturesForAxis(float* array, int size, float &max_val, float &min_val, float &mean_val, float &var_val) {
+  max_val = array[0];
+  min_val = array[0];
+  float sum = 0;
 
-    bool impactConfirmed = false;
-    unsigned long impactCheckStartTime = millis();
-
-    while (millis() - impactCheckStartTime < 500) {
-      int16_t accelData[3];
-      bmi160.getAccelData(accelData);
-
-      float ax = accelData[0] / 16384.0;
-      float ay = accelData[1] / 16384.0;
-      float az = accelData[2] / 16384.0;
-
-      float resultant_g = sqrt(pow(ax, 2) + pow(ay, 2) + pow(az, 2));
-      
-      Serial.print("Magnitude: ");
-      Serial.print(resultant_g, 2);
-      Serial.println(" g");
-      
-      if (resultant_g > IMPACT_THRESHOLD_G) {
-        Serial.println("\n>> IMPACTO CONFIRMADO! <<");
-        impactConfirmed = true;
-        break;
-      }
-      delay(10);
-    }
-
-    if (impactConfirmed) {
-      Serial.println("!! ALERTA: QUEDA DETECTADA E CONFIRMADA !!");
-    } else {
-      Serial.println(">> Impacto nao detectado. Alarme falso.");
-    }
-
-    Serial.println("-------------------------------------------\n");
-    
-    fallDetectedFlag = false;
+  for(int i = 0; i < size; i++) {
+    if(array[i] > max_val) max_val = array[i];
+    if(array[i] < min_val) min_val = array[i];
+    sum += array[i];
   }
   
-  delay(50); 
+  mean_val = sum / size;
+  var_val = calculateVariance(array, size, mean_val);
+}
+
+void loop() {
+  int ax, ay, az;
+  
+  // Lê os dados brutos do acelerômetro
+  BMI160.readAccelerometer(ax, ay, az);
+
+  // Converte para escala em m/s^2 (range de +-4g, 1g = 8192)
+  float x = (ax / 8192.0) * 9.80665;
+  float y = (ay / 8192.0) * 9.80665;
+  float z = (az / 8192.0) * 9.80665;
+  
+  // Armazena a leitura atual no buffer correspondente à amostra
+  x_buf[sample_count] = x;
+  y_buf[sample_count] = y;
+  z_buf[sample_count] = z;
+
+  sample_count++;
+
+  // Quando o buffer encher (passou 9 segundos / 450 amostras)[cite: 2]
+  if(sample_count >= WINDOW_SIZE) { //[cite: 2]
+    float features[12]; // Array para armazenar as 12 características FS-1[cite: 2]
+    
+    // Extrai características Eixo X[cite: 2]
+    extractFeaturesForAxis(x_buf, WINDOW_SIZE, features[0], features[1], features[2], features[3]); //[cite: 2]
+    // Extrai características Eixo Y[cite: 2]
+    extractFeaturesForAxis(y_buf, WINDOW_SIZE, features[4], features[5], features[6], features[7]); //[cite: 2]
+    // Extrai características Eixo Z[cite: 2]
+    extractFeaturesForAxis(z_buf, WINDOW_SIZE, features[8], features[9], features[10], features[11]); //[cite: 2]
+
+    // === ALTERAÇÃO AQUI ===
+    // De: Eloquent::ML::Port::DecisionTree clf;[cite: 2]
+    Eloquent::ML::Port::RandomForest clf;
+    
+    int prediction = clf.predict(features); //[cite: 2]
+
+    // Avalia o resultado (1 para Queda, 0 para ADL)[cite: 2]
+    if(prediction == 1) { //[cite: 2]
+      Serial.println(">>> ALERTA: QUEDA DETECTADA (ML) <<<"); //[cite: 2]
+      digitalWrite(ALARM_PIN, HIGH); //[cite: 2]
+      delay(2000); // Mantém o alarme por 2 segundos[cite: 2]
+      digitalWrite(ALARM_PIN, LOW); //[cite: 2]
+    } else { //[cite: 2]
+      Serial.println("ADL (Atividade Normal)"); //[cite: 2]
+    }
+
+    // Zera o contador para a próxima janela de 9 segundos[cite: 2]
+    sample_count = 0; //[cite: 2]
+  }
+
+  // Delay de 20ms para manter a taxa de amostragem em ~50Hz (1000ms / 50 = 20ms)
+  delay(20); 
 }
