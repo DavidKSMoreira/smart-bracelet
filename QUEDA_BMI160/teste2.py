@@ -95,7 +95,7 @@ print("\nTreinando o modelo Random Forest...")
 
 # É crucial limitar n_estimators e max_depth para embarcados.
 # Comece com valores baixos e aumente conforme a memória da placa permitir.
-rf_model = RandomForestClassifier(n_estimators=15, max_depth=15, random_state=42, class_weight='balanced') 
+rf_model = RandomForestClassifier(n_estimators=15, max_depth=12, random_state=42, class_weight='balanced') 
 rf_model.fit(X_train, y_train)
 
 y_pred = rf_model.predict(X_test)
@@ -104,6 +104,43 @@ print("\nResultados da Avaliação (Random Forest):")
 print("-" * 30)
 print(f"Acurácia: {accuracy_score(y_test, y_pred):.4f}")
 print(classification_report(y_test, y_pred, target_names=['ADL (0)', 'Queda (1)']))
+
+clf = rf_model
+
+# ==========================================
+# Validação da Queda Simulada
+# ==========================================
+
+print("\nValidando arquivo de simulação...")
+df_simulacao = pd.read_csv('queda_simulada.csv', names=['X', 'Y', 'Z'])
+
+# Modificação 4: Janela de 9 segundos (450 amostras a 50Hz) sem sobreposição
+window_size = 450
+step_size = 450 
+
+# Processa os dados em janelas sequenciais de 9 segundos
+for i in range(0, len(df_simulacao) - window_size + 1, step_size):
+    window = df_simulacao.iloc[i:i+window_size]
+        
+    features = []
+    
+    # Extrai as 4 características para os eixos X, Y e Z (Total 12 features)
+    for axis in ['X', 'Y', 'Z']:
+        features.extend([
+            window[axis].max(),
+            window[axis].min(),
+            window[axis].mean(),
+            window[axis].var(ddof=1)
+        ])
+        
+    X_test_simulacao = np.array([features])
+    
+    prediction = clf.predict(X_test_simulacao)
+    resultado = "QUEDA" if prediction[0] == 1 else "ADL"
+    
+    # Exibe o intervalo de amostras avaliado
+    print(f"Amostras {i} a {i+window_size-1}: Classificação = {resultado}")
+    print(f"   -> Primeira feature (Max_X) = {features[0]:.2f}")
 
 print("\nExportando modelo para C++...")
 c_code = port(rf_model)

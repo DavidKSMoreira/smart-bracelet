@@ -18,7 +18,7 @@ float y_buf[WINDOW_SIZE];
 float z_buf[WINDOW_SIZE];
 
 // --- Pinos de Alerta ---
-const int ALARM_PIN = 3; // Ajuste conforme o pino desejado na sua montagem
+const int ALARM_PIN = 2; // Ajuste conforme o pino desejado na sua montagem
 
 void setup() {
   Serial.begin(115200);
@@ -35,6 +35,9 @@ void setup() {
   // Range de +-4g configurado para a conversão de unidades
   BMI160.setAccelerometerRange(4);
   Serial.println("BMI160 inicializado! Iniciando coleta para inferencia (Janelas de 9s)...");
+  digitalWrite(ALARM_PIN, HIGH); //[cite: 2]
+  delay(200); // Mantém o alarme por 2 segundos[cite: 2]
+  digitalWrite(ALARM_PIN, LOW); //[cite: 2]
 }
 
 // Função para calcular Variância (Amostral)
