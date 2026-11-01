@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor de Quedas - Simpósio</title>
+    <title>Monitor de Quedas BMI160 - Simpósio</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,242 +28,389 @@
     
     <style>
         * { font-family: 'Outfit', sans-serif; }
-        
-        .card-glass { 
-            backdrop-filter: blur(10px); 
-            transition: all 0.3s ease;
-        }
-        
+        .card-glass { backdrop-filter: blur(10px); transition: all 0.3s ease; }
         .pulse-dot { animation: pulse-anim 2s infinite; }
         @keyframes pulse-anim { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
-        
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     </style>
 </head>
 
-<body class="h-full bg-slate-100 dark:bg-darkBg text-slate-800 dark:text-slate-200 transition-colors duration-300">
-    <div id="app" class="h-full w-full overflow-auto pb-10">
+<body class="min-h-screen bg-slate-100 dark:bg-darkBg text-slate-800 dark:text-slate-200 transition-colors duration-300">
+    <div id="app" class="w-full pb-12">
         
-        <header class="px-6 pt-8 pb-4 flex items-center justify-between max-w-4xl mx-auto">
+        <!-- Cabeçalho -->
+        <header class="px-6 pt-6 pb-4 flex flex-wrap items-center justify-between gap-4 max-w-5xl mx-auto">
             <div>
                 <div class="flex items-center gap-3">
-                    <div class="w-2 h-2 rounded-full pulse-dot bg-green-500"></div>
-                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Central de Monitoramento</h1>
+                    <div class="w-2.5 h-2.5 rounded-full pulse-dot bg-emerald-500"></div>
+                    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Central de Monitoramento de Quedas</h1>
                 </div>
-                <p class="text-sm mt-1 ml-5 text-slate-500 dark:text-slate-400">Detecção em tempo real</p>
+                <p class="text-xs sm:text-sm mt-1 ml-5 text-slate-500 dark:text-slate-400">
+                    Sensor Inercial BMI160 (Filtro Madgwick + Decision Tree ML) • Olá, <span class="font-semibold text-slate-700 dark:text-slate-200">{{ perfil.nome }}</span>
+                </p>
             </div>
             
-            <div class="flex items-center gap-6">
-                <select id="filtroTempo" onchange="atualizarDashboard()" class="rounded-lg px-3 py-2 text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="filtroTempo" onchange="atualizarDashboard()" class="rounded-xl px-3 py-2 text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-accent transition-colors">
                     <option value="">Todo o histórico</option>
                     <option value="1">Última 1 hora</option>
                     <option value="6">Últimas 6 horas</option>
                     <option value="24">Últimas 24 horas</option>
                 </select>
 
-                <div class="text-right hidden sm:block">
-                    <p class="text-xs font-medium text-accent">DISPOSITIVO</p>
-                    <p class="text-sm font-semibold">{{ esp_id }}</p>
+                <div class="px-3 py-1.5 rounded-xl bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 text-right hidden sm:block">
+                    <p class="text-[10px] font-bold tracking-wider text-accent uppercase">Dispositivo</p>
+                    <p id="header-esp-id" class="text-xs font-semibold">{{ esp_id }}</p>
                 </div>
 
-                <button onclick="toggleTheme()" class="p-2 rounded-full bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
-                    <i data-lucide="moon" id="theme-icon" class="w-5 h-5 text-slate-700 dark:text-yellow-400"></i>
+                <button onclick="togglePainelAlertas()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-accent/15 text-accent border border-accent/30 hover:bg-accent hover:text-white transition-all flex items-center gap-1.5">
+                    <i data-lucide="bell-ring" class="w-4 h-4"></i>
+                    <span>Configurar Alertas</span>
                 </button>
+
+                <button onclick="toggleTheme()" title="Alternar tema" class="p-2 rounded-xl bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+                    <i data-lucide="moon" id="theme-icon" class="w-4 h-4 text-slate-700 dark:text-yellow-400"></i>
+                </button>
+
+                <a href="/logout" title="Sair da conta" class="p-2 rounded-xl bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 hover:bg-red-500/10 hover:border-red-500/30 text-slate-500 hover:text-red-500 transition-colors">
+                    <i data-lucide="log-out" class="w-4 h-4"></i>
+                </a>
             </div>
         </header>
 
-        <div class="px-6 max-w-4xl mx-auto">
+        <div class="px-6 max-w-5xl mx-auto">
             <div class="h-px w-full bg-gradient-to-r from-transparent via-accent to-transparent opacity-50 mb-6"></div>
         </div>
 
-        <section class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
-            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Eventos no Período</p>
+        <!-- Banner de Estado Atual do Idoso / Pulseira -->
+        <section class="px-6 pb-6 max-w-5xl mx-auto">
+            <div id="banner-status-queda" class="card-glass rounded-2xl p-5 bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all">
+                <div class="flex items-center gap-4">
+                    <div id="banner-icone-bg" class="w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0">
+                        <i id="banner-icone" data-lucide="shield-check" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <span id="banner-tag" class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
+                            Monitoramento Ativo
+                        </span>
+                        <h2 id="banner-titulo" class="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                            Estabilidade Normal — Nenhuma queda nos últimos segundos
+                        </h2>
+                        <p id="banner-subtitulo" class="text-xs text-slate-500 dark:text-slate-400">
+                            A pulseira está analisando aceleração e orientação postural a 50Hz.
+                        </p>
+                    </div>
+                </div>
+                <div class="text-right shrink-0">
+                    <span class="text-xs text-slate-400 block">Último pacote recebido</span>
+                    <span id="banner-ultimo-sinal" class="text-sm font-semibold text-slate-700 dark:text-slate-200">—</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Cards Superiores de Resumo -->
+        <section class="px-6 pb-6 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-5xl mx-auto">
+            <div class="card-glass rounded-2xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Quedas no Período</p>
                 <p id="stat-total" class="text-3xl font-bold mt-2 text-accent">0</p>
             </div>
-            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Último Evento</p>
+            <div class="card-glass rounded-2xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Horário da Última Queda</p>
                 <p id="stat-recent" class="text-lg font-bold mt-3 text-slate-800 dark:text-slate-200">—</p>
             </div>
-            <div class="card-glass rounded-xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Status da Rede</p>
+            <div class="card-glass rounded-2xl p-5 text-center bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p class="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400">Status da Pulseira (Wi-Fi)</p>
                 <p id="status-rede" class="text-lg font-bold mt-3 text-slate-400 flex items-center justify-center gap-2">
                     <i data-lucide="loader" class="w-5 h-5 animate-spin"></i> Verificando...
                 </p>
             </div>
         </section>
 
-        <!-- Seção: Gráficos e Alertas Vitais Separados -->
-        <section class="px-6 pb-6 max-w-4xl mx-auto space-y-6">
-            
-            <!-- Gráfico 1: Batimento Cardíaco -->
-            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
-                    <i data-lucide="heart" class="w-5 h-5 text-yellow-500"></i> Batimento Cardíaco (BPM)
-                </h2>
-                <div class="w-full h-48 relative">
-                    <canvas id="bpmChart"></canvas>
-                </div>
-            </div>
+        <!-- Painel de Configuração de Alertas -->
+        <section id="secao-alertas-lgpd" class="px-6 pb-6 max-w-5xl mx-auto {% if perfil.tem_whatsapp %}hidden{% endif %}">
+            <div class="card-glass rounded-2xl p-6 bg-white dark:bg-darkCard border border-accent/30 shadow-lg space-y-5">
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-accent/15 text-accent flex items-center justify-center">
+                            <i data-lucide="smartphone" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 dark:text-white">
+                                Configuração de Alertas no Celular
+                            </h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                Telefone cadastrado: <strong id="lbl-telefone-mascarado" class="text-slate-800 dark:text-slate-200">{{ perfil.telefone_mascarado }}</strong>
+                                • Status:
+                                <span id="lbl-status-wpp" class="font-semibold {% if perfil.tem_whatsapp and perfil.alertas_ativos %}text-emerald-400{% else %}text-amber-400{% endif %}">
+                                    {% if not perfil.tem_whatsapp %}Aguardando Configuração{% elif perfil.alertas_ativos %}Alertas Ativos{% else %}Alertas Pausados{% endif %}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
 
-            <!-- Gráfico 2: Temperatura -->
-            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2 text-slate-800 dark:text-white">
-                    <i data-lucide="thermometer" class="w-5 h-5 text-blue-500"></i> Temperatura (°C)
-                </h2>
-                <div class="w-full h-48 relative">
-                    <canvas id="tempChart"></canvas>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="alternarRecebimentoAlertas()" id="btn-pausar-alertas"
+                            class="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            {% if perfil.alertas_ativos %}Pausar Alertas{% else %}Reativar Alertas{% endif %}
+                        </button>
+                        <button type="button" onclick="togglePainelAlertas()" class="text-xs text-slate-400 hover:text-slate-200 px-2 py-1">
+                            Fechar ✕
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Alerta 3: SpO2 (Substituindo o antigo Gráfico) -->
-            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center">
-                <h2 class="text-lg font-semibold mb-2 flex items-center gap-2 text-slate-800 dark:text-white">
-                    <i data-lucide="activity" class="w-5 h-5 text-blue-400"></i> Saturação de Oxigênio (SpO2)
-                </h2>
-                <div class="mt-4 flex flex-col items-center">
-                    <div id="spo2-value" class="text-5xl font-bold text-slate-300">--%</div>
-                    <div id="spo2-status" class="mt-4 px-4 py-2 rounded-full text-sm font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 transition-all duration-300">
-                        Aguardando dados...
+                <!-- Ativação do Bot e Cadastro de Contato -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Ativação do Bot no Telegram -->
+                    <div class="rounded-xl p-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800 flex flex-col justify-between space-y-3">
+                        <div class="space-y-1.5">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400">Passo 1</span>
+                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ativar Bot no Celular</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                Abra o <strong>Bot de Alertas</strong> no Telegram e toque em <strong>"Começar / Start"</strong> para liberar o recebimento de notificações no seu aparelho.
+                            </p>
+                        </div>
+                        <a href="https://t.me/{{ bot_username if bot_username else 'BotFather' }}" target="_blank" rel="noopener noreferrer"
+                           class="w-full py-2.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold text-center flex items-center justify-center gap-2 shadow transition-all">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            {% if bot_username %}1. Abrir @{{ bot_username }}{% else %}1. Abrir Bot no Telegram{% endif %}
+                        </a>
+                    </div>
+
+                    <!-- Formulário de Contato -->
+                    <div class="md:col-span-2 rounded-xl p-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-accent">
+                                Passo 2 • Dados para Recebimento de Alertas
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Seu Telefone (com DDD)</label>
+                                <input type="text" id="input-telefone" placeholder="Ex: 86999999999"
+                                    class="w-full px-3 py-2 rounded-lg text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-accent">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">E-mail (Opcional)</label>
+                                <input type="email" id="input-email" placeholder="seu_email@gmail.com"
+                                    class="w-full px-3 py-2 rounded-lg text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-accent">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 dark:text-slate-400 mb-1">ID da Pulseira</label>
+                                <input type="text" id="input-esp-id" value="{{ esp_id }}"
+                                    class="w-full px-3 py-2 rounded-lg text-sm bg-white dark:bg-darkCard border border-slate-300 dark:border-slate-700 focus:outline-none focus:border-accent">
+                            </div>
+                        </div>
+
+                        <div id="msg-feedback-contato" class="text-xs font-medium hidden"></div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button type="button" onclick="salvarContatoLGPD()" class="px-4 py-2 rounded-xl bg-accent hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1.5 transition-all">
+                                    <i data-lucide="check" class="w-3.5 h-3.5"></i> Salvar Contato
+                                </button>
+                                <button type="button" onclick="testarAlertaWhatsApp()" class="px-3.5 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                                    <i data-lucide="send" class="w-3.5 h-3.5"></i> Testar Meu Alerta
+                                </button>
+                            </div>
+
+                            <button type="button" onclick="excluirContaLGPD()" class="px-3 py-2 rounded-xl text-xs font-semibold text-red-500 hover:bg-red-500/10 border border-transparent hover:border-red-500/30 flex items-center gap-1 transition-all">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir Conta
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
-
         </section>
 
-        <section class="px-6 max-w-4xl mx-auto">
-            <div class="card-glass rounded-xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h2 class="text-lg font-semibold mb-6 flex items-center gap-2 text-slate-800 dark:text-white">
-                    <i data-lucide="activity" class="w-5 h-5 text-accent"></i> Registro de Ocorrências
+        <!-- Gráfico de Frequência Temporal de Quedas -->
+        <section class="px-6 pb-6 max-w-5xl mx-auto">
+            <div class="card-glass rounded-2xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base sm:text-lg font-semibold flex items-center gap-2 text-slate-800 dark:text-white">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5 text-accent"></i> Histórico Temporal de Quedas Detectadas (BMI160)
+                    </h2>
+                    <span class="text-xs text-slate-400">Atualização automática (3s)</span>
+                </div>
+                <div class="w-full h-52 relative">
+                    <canvas id="quedasChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lista de Registro de Ocorrências de Queda -->
+        <section class="px-6 max-w-5xl mx-auto">
+            <div class="card-glass rounded-2xl p-6 bg-white dark:bg-darkCard border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 class="text-base sm:text-lg font-semibold mb-5 flex items-center gap-2 text-slate-800 dark:text-white">
+                    <i data-lucide="alert-octagon" class="w-5 h-5 text-accent"></i> Registro de Ocorrências de Queda
                 </h2>
                 
                 <div id="event-list" class="space-y-3">
-                    <p id="empty-msg" class="text-sm text-center py-8 text-slate-500">Buscando dados no sistema...</p>
+                    <p id="empty-msg" class="text-sm text-center py-8 text-slate-500">Buscando ocorrências no sistema...</p>
                 </div>
             </div>
         </section>
     </div>
 
     <script>
-        // Inicializa ícones
         lucide.createIcons();
 
-        const espId = "{{ esp_id }}";
+        let espId = "{{ esp_id }}";
+        let alertasAtivos = "{{ 'true' if perfil.alertas_ativos else 'false' }}" === "true";
+        let estadoAnteriorEventos = "";
+        let quedasChartInstance = null;
 
-        const dadosVitais = {{ dados | safe }};
-        const rotulosVitais = {{ rotulos | safe }};
-
-        if (dadosVitais && rotulosVitais && rotulosVitais.length > 0) {
-            
-            const chartOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false } 
+        // Inicializa o Gráfico Exclusivo de Quedas (Chart.js)
+        function inicializarGraficoQuedas() {
+            const ctx = document.getElementById('quedasChart').getContext('2d');
+            quedasChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Ocorrências de Queda',
+                        data: [],
+                        backgroundColor: 'rgba(255, 77, 106, 0.65)',
+                        borderColor: '#ff4d6a',
+                        borderWidth: 1.5,
+                        borderRadius: 6,
+                        maxBarThickness: 38
+                    }]
                 },
-                scales: {
-                    x: {
-                        ticks: {
-                            maxTicksLimit: 6, // Limita a quantidade de rótulos para evitar sobreposição
-                            maxRotation: 0,   // Mantém o texto sempre na horizontal
-                            color: '#64748b', // Cor neutra que se adapta bem ao tema
-                            callback: function(value) {
-                                const rotulo = this.getLabelForValue(value);
-                                if (!rotulo) return '';
-                                
-                                // Tenta converter a string do rótulo para um objeto Date
-                                // e formata para exibir apenas Hora e Minuto
-                                const dataObj = new Date(rotulo);
-                                if (!isNaN(dataObj.getTime())) {
-                                    return dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                                }
-                                return rotulo; // Retorna o texto original caso não seja uma data válida
-                            }
-                        },
-                        grid: {
-                            display: false, // Remove as linhas verticais de grade para um visual mais "limpo"
-                            drawBorder: false
-                        }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
                     },
-                    y: { 
-                        type: 'linear', 
-                        display: true, 
-                        position: 'left',
-                        ticks: {
-                            color: '#64748b'
+                    scales: {
+                        x: {
+                            ticks: { color: '#64748b', maxRotation: 0 },
+                            grid: { display: false }
                         },
-                        grid: {
-                            color: 'rgba(100, 116, 139, 0.1)', // Linhas horizontais bem suaves e translúcidas
-                            drawBorder: false
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#64748b' },
+                            grid: { color: 'rgba(100, 116, 139, 0.12)' }
                         }
                     }
                 }
-            };
+            });
+        }
 
-            // 1. Gráfico de Batimento Cardíaco (BPM)
-            const ctxBpm = document.getElementById('bpmChart').getContext('2d');
-            new Chart(ctxBpm, {
-                type: 'line',
-                data: {
-                    labels: rotulosVitais,
-                    datasets: [{
-                        label: 'Batimento Cardíaco (BPM)',
-                        data: dadosVitais.batimento_cardiaco,
-                        borderColor: '#eab308', 
-                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: chartOptions
+        function atualizarGraficoComEventos(eventos) {
+            if (!quedasChartInstance) return;
+
+            if (!eventos || eventos.length === 0) {
+                quedasChartInstance.data.labels = ['Sem ocorrências'];
+                quedasChartInstance.data.datasets[0].data = [0];
+                quedasChartInstance.update();
+                return;
+            }
+
+            // Agrupa as quedas por horário (HH:MM) em ordem cronológica
+            const contagemPorMinuto = {};
+            const eventosOrdemCronologica = [...eventos].reverse();
+
+            eventosOrdemCronologica.forEach((ev) => {
+                const d = new Date(ev.horario.replace(' ', 'T'));
+                const chave = !isNaN(d.getTime())
+                    ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                    : ev.horario;
+                contagemPorMinuto[chave] = (contagemPorMinuto[chave] || 0) + 1;
             });
 
-            // 2. Gráfico de Temperatura
-            const ctxTemp = document.getElementById('tempChart').getContext('2d');
-            new Chart(ctxTemp, {
-                type: 'line',
-                data: {
-                    labels: rotulosVitais,
-                    datasets: [{
-                        label: 'Temperatura (°C)',
-                        data: dadosVitais.temperatura,
-                        borderColor: '#3b82f6', 
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        fill: true
-                    }]
-                },
-                options: chartOptions
-            });
+            quedasChartInstance.data.labels = Object.keys(contagemPorMinuto);
+            quedasChartInstance.data.datasets[0].data = Object.values(contagemPorMinuto);
+            quedasChartInstance.update();
+        }
 
-            // 3. Alerta de Baixa Saturação (SpO2)
-            if (dadosVitais.spo2 && dadosVitais.spo2.length > 0) {
-                const ultimaSpo2 = dadosVitais.spo2[dadosVitais.spo2.length - 1];
-                const valorEl = document.getElementById('spo2-value');
-                const statusEl = document.getElementById('spo2-status');
-                
-                valorEl.innerText = ultimaSpo2 + '%';
-                
-                if (ultimaSpo2 < 90) {
-                    valorEl.className = "text-5xl font-bold text-red-600 dark:text-red-500 pulse-dot";
-                    statusEl.innerText = "ALERTA: BAIXA SATURAÇÃO";
-                    statusEl.className = "mt-4 px-4 py-2 rounded-full text-sm font-bold bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 border border-red-200 dark:border-red-500/30";
+        function togglePainelAlertas() {
+            const sec = document.getElementById('secao-alertas-lgpd');
+            sec.classList.toggle('hidden');
+        }
+
+        function mostrarFeedback(texto, tipo) {
+            const el = document.getElementById('msg-feedback-contato');
+            el.classList.remove('hidden');
+            el.className = tipo === 'sucesso'
+                ? 'text-xs font-medium px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                : 'text-xs font-medium px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20';
+            el.innerText = texto;
+        }
+
+        async function salvarContatoLGPD() {
+            const telefone = document.getElementById('input-telefone').value;
+            const email = document.getElementById('input-email').value;
+            const novoEspId = document.getElementById('input-esp-id').value;
+
+            try {
+                const res = await fetch('/api/salvar_contato', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telefone, email, esp_id: novoEspId })
+                });
+                const dados = await res.json();
+                if (res.ok) {
+                    espId = dados.perfil.esp_id;
+                    document.getElementById('header-esp-id').innerText = espId;
+                    document.getElementById('lbl-telefone-mascarado').innerText = dados.perfil.telefone_mascarado;
+                    document.getElementById('lbl-status-wpp').innerText = dados.perfil.tem_whatsapp ? 'Alertas Ativos' : 'Aguardando Configuração';
+                    document.getElementById('lbl-status-wpp').className = 'font-semibold text-emerald-400';
+                    document.getElementById('input-telefone').value = '';
+                    mostrarFeedback(dados.message, 'sucesso');
+                    atualizarDashboard();
                 } else {
-                    valorEl.className = "text-5xl font-bold text-green-600 dark:text-green-500";
-                    statusEl.innerText = "Saturação Normal";
-                    statusEl.className = "mt-4 px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 border border-green-200 dark:border-green-500/30";
+                    mostrarFeedback(dados.message || 'Erro ao salvar.', 'erro');
                 }
+            } catch (e) {
+                mostrarFeedback('Erro de comunicação com o servidor.', 'erro');
             }
         }
 
-        // Lógica de troca de tema (Dark/Light)
+        async function testarAlertaWhatsApp() {
+            mostrarFeedback('Enviando mensagem de teste para o seu celular...', 'sucesso');
+            try {
+                const res = await fetch('/api/testar_alerta', { method: 'POST' });
+                const dados = await res.json();
+                mostrarFeedback(dados.message, res.ok ? 'sucesso' : 'erro');
+            } catch (e) {
+                mostrarFeedback('Erro ao testar alerta.', 'erro');
+            }
+        }
+
+        async function alternarRecebimentoAlertas() {
+            alertasAtivos = !alertasAtivos;
+            const res = await fetch('/api/alternar_alertas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ativo: alertasAtivos })
+            });
+            const dados = await res.json();
+            if (res.ok) {
+                document.getElementById('btn-pausar-alertas').innerText = alertasAtivos ? 'Pausar Alertas' : 'Reativar Alertas';
+                document.getElementById('lbl-status-wpp').innerText = alertasAtivos ? 'Alertas Ativos' : 'Alertas Pausados';
+                document.getElementById('lbl-status-wpp').className = alertasAtivos ? 'font-semibold text-emerald-400' : 'font-semibold text-amber-400';
+                mostrarFeedback(dados.message, 'sucesso');
+            }
+        }
+
+        async function excluirContaLGPD() {
+            const confirmar = confirm(
+                "Tem certeza que deseja excluir permanentemente sua conta e seus dados de contato?"
+            );
+            if (!confirmar) return;
+
+            const res = await fetch('/api/excluir_conta', { method: 'POST' });
+            if (res.ok) {
+                window.location.href = '/login';
+            }
+        }
+
         function toggleTheme() {
             const html = document.documentElement;
             const icon = document.getElementById('theme-icon');
-            
             if (html.classList.contains('dark')) {
                 html.classList.remove('dark');
                 icon.setAttribute('data-lucide', 'sun');
@@ -271,20 +418,64 @@
                 html.classList.add('dark');
                 icon.setAttribute('data-lucide', 'moon');
             }
-            lucide.createIcons(); 
+            lucide.createIcons();
         }
 
-        // Variável global para rastrear se houve mudança nos eventos
-        let estadoAnteriorEventos = "";
+        function atualizarBannerStatus(dados) {
+            const banner = document.getElementById('banner-status-queda');
+            const iconeBg = document.getElementById('banner-icone-bg');
+            const tag = document.getElementById('banner-tag');
+            const titulo = document.getElementById('banner-titulo');
+            const subtitulo = document.getElementById('banner-subtitulo');
+            const ultimoSinalEl = document.getElementById('banner-ultimo-sinal');
 
-        // Lógica de busca de dados (Ocorrências)
+            if (dados.ultima_comunicacao) {
+                const dtSinal = new Date(dados.ultima_comunicacao.replace(' ', 'T'));
+                ultimoSinalEl.innerText = !isNaN(dtSinal.getTime())
+                    ? dtSinal.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : dados.ultima_comunicacao;
+            } else {
+                ultimoSinalEl.innerText = 'Sem leituras';
+            }
+
+            // Verifica se houve uma queda recente (últimos 45 segundos)
+            let quedaRecente = false;
+            if (dados.eventos && dados.eventos.length > 0) {
+                const dtUltimaQueda = new Date(dados.eventos[0].horario.replace(' ', 'T'));
+                const diffSegundos = (new Date() - dtUltimaQueda) / 1000;
+                if (diffSegundos <= 45) {
+                    quedaRecente = true;
+                }
+            }
+
+            if (quedaRecente) {
+                banner.className = "card-glass rounded-2xl p-5 bg-red-500/15 border-2 border-accent flex flex-col sm:flex-row items-center justify-between gap-4 transition-all";
+                iconeBg.className = "w-12 h-12 rounded-2xl bg-accent text-white flex items-center justify-center shrink-0 pulse-dot";
+                tag.className = "text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-accent text-white";
+                tag.innerText = "🚨 EMERGÊNCIA: QUEDA DETECTADA";
+                titulo.innerText = "ALERTA CRÍTICO: Queda identificada pelo sensor BMI160!";
+                subtitulo.innerText = "Notificações de emergência foram disparadas para os contatos cadastrados.";
+            } else {
+                banner.className = "card-glass rounded-2xl p-5 bg-emerald-500/10 border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 transition-all";
+                iconeBg.className = "w-12 h-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500 shrink-0";
+                tag.className = "text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400";
+                tag.innerText = "Monitoramento Normal";
+                titulo.innerText = "Estabilidade Normal — Nenhuma queda nos últimos segundos";
+                subtitulo.innerText = "A pulseira está analisando aceleração e orientação postural (Filtro Madgwick + ML) a 50Hz.";
+            }
+        }
+
         async function atualizarDashboard() {
             try {
                 const horas = document.getElementById('filtroTempo').value;
-                let url = `/api/dados_grafico?esp_id=${espId}`;
-                if (horas !== "") url += `&horas=${horas}`;
+                let url = `/api/dados_grafico?esp_id=${encodeURIComponent(espId)}`;
+                if (horas !== "") url += `&horas=${encodeURIComponent(horas)}`;
 
                 const response = await fetch(url);
+                if (response.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
                 const dados = await response.json();
 
                 if (dados.error) {
@@ -293,94 +484,87 @@
                 }
 
                 // Atualiza Cards Superiores
-                document.getElementById('stat-total').innerText = dados.total_eventos;
+                document.getElementById('stat-total').innerText = dados.total_quedas;
                 
-                if (dados.total_eventos > 0) {
-                    const ultima = new Date(dados.eventos[0].horario);
-                    document.getElementById('stat-recent').innerText = ultima.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                if (dados.total_quedas > 0) {
+                    const ultima = new Date(dados.eventos[0].horario.replace(' ', 'T'));
+                    document.getElementById('stat-recent').innerText = !isNaN(ultima.getTime())
+                        ? ultima.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                        : dados.eventos[0].horario;
                 } else {
                     document.getElementById('stat-recent').innerText = "—";
                 }
 
                 const statusEl = document.getElementById('status-rede');
-                
                 if (dados.ultima_comunicacao) {
                     const dataBanco = new Date(dados.ultima_comunicacao.replace(' ', 'T'));
-                    const dataAgora = new Date();
+                    const segundosAtras = (new Date() - dataBanco) / 1000;
                     
-                    const segundosAtras = (dataAgora - dataBanco) / 1000;
-                    
-                    if (segundosAtras <= 15) {
-                        statusEl.className = "text-lg font-bold mt-3 text-green-500 flex items-center justify-center gap-2";
+                    if (segundosAtras <= 18) {
+                        statusEl.className = "text-lg font-bold mt-3 text-emerald-500 flex items-center justify-center gap-2";
                         statusEl.innerHTML = `<i data-lucide="wifi" class="w-5 h-5"></i> Conectado`;
                     } else {
                         statusEl.className = "text-lg font-bold mt-3 text-red-500 flex items-center justify-center gap-2";
                         statusEl.innerHTML = `<i data-lucide="wifi-off" class="w-5 h-5"></i> Offline`;
                     }
                 } else {
-                    statusEl.innerHTML = `<i data-lucide="help-circle" class="w-5 h-5"></i> Sem Dados`;
+                    statusEl.className = "text-lg font-bold mt-3 text-slate-400 flex items-center justify-center gap-2";
+                    statusEl.innerHTML = `<i data-lucide="help-circle" class="w-5 h-5"></i> Aguardando Pulseira`;
                 }
-                
+
+                atualizarBannerStatus(dados);
                 lucide.createIcons();
 
-                // Converte a lista atual em texto para comparar com a anterior
+                // Atualiza lista de eventos e gráfico somente quando houver mudança
                 const estadoAtualEventos = JSON.stringify(dados.eventos);
-                
-                // Só processa e recria a lista HTML se houver diferença nos dados
                 if (estadoAtualEventos !== estadoAnteriorEventos) {
-                    estadoAnteriorEventos = estadoAtualEventos; // Atualiza o estado
-                    
+                    estadoAnteriorEventos = estadoAtualEventos;
+                    atualizarGraficoComEventos(dados.eventos);
+
                     const container = document.getElementById('event-list');
-                    
-                    if (dados.total_eventos === 0) {
-                        container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhum alerta detectado neste período.</p>';
+                    if (dados.total_quedas === 0) {
+                        container.innerHTML = '<p class="text-sm text-center py-8 text-slate-500">Nenhuma queda detectada neste período.</p>';
                         return;
                     }
 
-                container.innerHTML = ''; 
-
-                dados.eventos.forEach((evento) => {
-                    const dataObj = new Date(evento.horario);
-                    const dataFormatada = dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-                    const horaFormatada = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-                    let ehQueda = evento.queda === 1;
-                    let titulo = ehQueda ? "Alerta de Queda" : "Anomalia Sinais Vitais";
-                    let dotColor = ehQueda ? "bg-accent" : "bg-yellow-500";
-                    let badgeClass = ehQueda 
-                        ? "bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-accent border-red-200 dark:border-red-500/20" 
-                        : "bg-yellow-100 text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-500 border-yellow-200 dark:border-yellow-500/20";
-                    let textoBadge = ehQueda ? "CRÍTICO" : "ATENÇÃO";
-                    let resumo = ehQueda ? "" : `BPM: ${evento.batimento} | SpO2: ${evento.spo2}%`;
+                    container.innerHTML = '';
+                    dados.eventos.forEach((evento) => {
+                        const dataObj = new Date(evento.horario.replace(' ', 'T'));
+                        const dataFormatada = !isNaN(dataObj.getTime())
+                            ? dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : evento.horario;
+                        const horaFormatada = !isNaN(dataObj.getTime())
+                            ? dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                            : '';
 
                         const row = document.createElement('div');
-                        row.className = 'fade-in flex items-center justify-between rounded-lg px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
-                        
+                        row.className = 'fade-in flex items-center justify-between rounded-xl px-5 py-4 bg-slate-50 dark:bg-[#0d1220] border border-slate-200 dark:border-slate-800';
                         row.innerHTML = `
                             <div class="flex items-center gap-4">
-                                <div class="w-3 h-3 rounded-full ${dotColor} pulse-dot"></div>
+                                <div class="w-3 h-3 rounded-full bg-accent pulse-dot"></div>
                                 <div>
-                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">${titulo}</p>
+                                    <p class="text-sm font-semibold text-slate-900 dark:text-white">Alerta de Queda Detectado (Sensor BMI160)</p>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                                        ${dataFormatada} • ${horaFormatada} ${resumo ? `<br><span class="font-medium text-slate-600 dark:text-slate-300">${resumo}</span>` : ''}
+                                        ${dataFormatada} • ${horaFormatada} • Dispositivo: <span class="font-medium text-slate-700 dark:text-slate-300">${espId}</span>
                                     </p>
                                 </div>
                             </div>
                             <div class="flex items-center">
-                                <span class="text-xs font-bold px-3 py-1 rounded border ${badgeClass}">
-                                    ${textoBadge}
+                                <span class="text-xs font-bold px-3 py-1 rounded-lg border bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-accent border-red-200 dark:border-red-500/20">
+                                    QUEDA • CRÍTICO
                                 </span>
                             </div>
                         `;
                         container.appendChild(row);
                     });
-                } // Fim da verificação de mudança de dados
+                }
 
             } catch (error) {
                 console.error("Erro de conexão:", error);
             }
         }
 
+        inicializarGraficoQuedas();
         atualizarDashboard();
         setInterval(atualizarDashboard, 3000);
     </script>

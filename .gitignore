@@ -1,9 +1,8 @@
 venv/
+.venv/
 __pycache__/
+*.pyc
 *.db
-App/simulacao.py
-App/injeta_teste.py
 .env
-.gitignore
-QUEDA_BMI160/dataset
-QUEDA_BMI160/queda_simulada.csv
+.lgpd_master_key
+App/.lgpd_master_key
